@@ -15,6 +15,7 @@
           <h1 class="title">AI 日报</h1>
           <span class="edition" x-show="issue" x-text="issue?.date"></span>
           <span class="status-badge" :class="statusBadgeClass()" x-text="statusBadgeText()"></span>
+          <button class="icon-btn" @click="openSettings()" aria-label="偏好设置">⚙</button>
         </div>
         <div class="badges" x-show="summary">
           <div class="badge-group">
@@ -121,14 +122,140 @@
               </template>
             </ul>
             <a class="btn btn-primary" :href="detail.sourceUrl" target="_blank" rel="noopener">阅读原文</a>
+            <button class="btn btn-share" @click="shareCurrentArticle()" :disabled="shareBusy" style="margin-left:.5rem">
+              <span x-show="!shareBusy">分享这条</span>
+              <span x-show="shareBusy">生成中…</span>
+            </button>
           </div>
         </template>
       </article>
     </section>
   </main>
 
-  <!-- Global toast -->
-  <div class="toast" x-data x-show="false"></div>
+  <!-- Share modal (T080) -->
+  <div class="share-overlay" x-show="shareModalOpen" x-cloak @click.self="closeShareModal()" role="dialog" aria-label="分享卡片">
+    <div class="share-modal">
+      <header class="share-head">
+        <h2>分享这条</h2>
+        <button class="icon-btn" @click="closeShareModal()" aria-label="关闭">×</button>
+      </header>
+      <section class="share-body" x-show="shareCard">
+        <p class="share-title" x-text="shareCard?.articleTitle"></p>
+        <p class="share-url" x-text="shareCard?.cardUrl"></p>
+        <div class="share-actions">
+          <button class="btn" @click="copyShareUrl()">
+            <span x-show="!shareCopyState">复制链接</span>
+            <span x-show="shareCopyState" x-text="shareCopyState"></span>
+          </button>
+          <button class="btn btn-primary" @click="openShareInNewTab()">打开</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Settings panel (T070) -->
+  <div class="settings-overlay" x-show="settingsOpen" x-cloak @click.self="closeSettings()" role="dialog" aria-label="偏好设置">
+    <div class="settings-modal">
+      <header class="settings-head">
+        <h2>我的偏好</h2>
+        <button class="icon-btn" @click="closeSettings()" aria-label="关闭">×</button>
+      </header>
+
+      <section class="settings-section">
+        <h3>信息来源</h3>
+        <div class="switch-list">
+          <template x-for="s in sources" :key="s.key">
+            <label class="switch-row">
+              <span class="switch-label" x-text="s.name"></span>
+              <input type="checkbox"
+                     :checked="settingsForm.sources[s.key]"
+                     @change="settingsForm.sources[s.key] = $event.target.checked" />
+              <span class="switch-knob"></span>
+            </label>
+          </template>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>信息类型</h3>
+        <div class="switch-list">
+          <template x-for="t in types" :key="t.key">
+            <label class="switch-row">
+              <span class="switch-label" x-text="t.name"></span>
+              <input type="checkbox"
+                     :checked="settingsForm.types[t.key]"
+                     @change="settingsForm.types[t.key] = $event.target.checked" />
+              <span class="switch-knob"></span>
+            </label>
+          </template>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>每日推送</h3>
+        <label class="switch-row">
+          <span class="switch-label">启用每日推送</span>
+          <input type="checkbox"
+                 :checked="settingsForm.dailyPush.enabled"
+                 @change="settingsForm.dailyPush.enabled = $event.target.checked" />
+          <span class="switch-knob"></span>
+        </label>
+        <label class="time-row" :class="settingsForm.dailyPush.enabled ? '' : 'time-disabled'">
+          <span class="switch-label">推送时间</span>
+          <input type="time"
+                 pattern="([01]\d|2[0-3]):[0-5]\d"
+                 x-model="settingsForm.dailyPush.time"
+                 :disabled="!settingsForm.dailyPush.enabled" />
+        </label>
+        <p class="field-error" x-show="settingsFormError" x-text="settingsFormError"></p>
+      </section>
+
+      <footer class="settings-foot">
+        <button class="btn" @click="resetSettings()" :disabled="settingsSaving">恢复默认</button>
+        <button class="btn btn-primary" @click="saveSettings()" :disabled="settingsSaving">
+          <span x-show="!settingsSaving">保存</span>
+          <span x-show="settingsSaving">保存中…</span>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Global toast (T082) -->
+  <div class="toast" x-data x-show="false" role="status" aria-live="polite"></div>
+
+  <!-- Global error panel for 9001/9002 (T083/T084) -->
+  <div class="error-panel" x-data x-show="false" x-cloak role="alert" aria-live="assertive">
+    <div class="error-panel-body">
+      <p class="error-panel-title" x-text="errorMessage || '服务开了小差'"></p>
+      <p class="error-panel-hint muted" x-show="state === 'error'">可以重试一下，我们已经记下这次失败。</p>
+      <button class="btn btn-primary" @click="retryLast()">重试</button>
+    </div>
+  </div>
+
+  <!-- Login panel for 1003 (T085) -->
+  <div class="login-overlay" x-show="loginOpen" x-cloak @click.self="closeLoginPanel()" role="dialog" aria-label="登录">
+    <div class="login-modal">
+      <header class="login-head">
+        <h2>需要登录</h2>
+        <button class="icon-btn" @click="closeLoginPanel()" aria-label="关闭">×</button>
+      </header>
+      <section class="login-body">
+        <p class="muted">请输入访问令牌（Bearer Token）以继续操作。</p>
+        <label class="login-row">
+          <span class="switch-label">Token</span>
+          <input type="password" autocomplete="off" x-model="loginToken" placeholder="在 AIDAILY_BEARER_TOKEN 中配置的令牌" />
+        </label>
+        <p class="field-error" x-show="loginError" x-text="loginError"></p>
+        <p class="muted" style="font-size: 0.85em; margin-top: 0.5rem;">
+          将保存在 localStorage 的 <code>AIDAILY_TOKEN</code> 中。
+        </p>
+      </section>
+      <footer class="login-foot">
+        <button class="btn" @click="closeLoginPanel()">取消</button>
+        <button class="btn btn-primary" @click="submitLogin()">登录并重试</button>
+      </footer>
+    </div>
+  </div>
 
   <script src="/static/vendor/alpine.min.js" defer></script>
   <script src="/static/vendor/htmx.min.js"></script>
