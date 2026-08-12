@@ -1,0 +1,83 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== Virtual envs =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== Testing & coverage =====
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+playwright-report/
+test-results/
+
+# ===== Type checkers / linters =====
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== Application data =====
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+logs/
+*.log
+
+# ===== Environment & secrets =====
+.env
+.env.*
+!.env.example
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.tmp
+
+# ===== Frontend (vendor untouched, build artifacts ignored) =====
+frontend/static/vendor/*.map
+
+# ===== Docker =====
+.docker/

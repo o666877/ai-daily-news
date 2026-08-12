@@ -1,0 +1,53 @@
+# ===== Version control =====
+.git
+.gitignore
+.gitattributes
+
+# ===== Documentation & specs (not needed in image) =====
+specs/
+*.md
+!README.md
+LICENSE
+
+# ===== Python caches & venvs =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ===== App runtime data (mounted as volumes) =====
+data/
+logs/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.log
+
+# ===== Secrets =====
+.env
+.env.*
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# ===== Tests (run in CI, not in production image) =====
+backend/tests/
+
+# ===== Docker meta =====
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
