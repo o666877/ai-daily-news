@@ -37,9 +37,9 @@ dev = [
     "pytest-asyncio==0.23.7",
     "pytest-cov==5.0.0",
     "respx==0.21.1",
-    "pytest-playwright==1.44.0",
     "ruff==0.4.7",
     "mypy==1.10.0",
+    # pytest-playwright deferred to T053 (E2E phase); not needed for MVP US1
 ]
 
 [tool.setuptools.packages.find]

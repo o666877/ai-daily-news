@@ -41,19 +41,19 @@
 
 **⚠️ CRITICAL**: 本阶段未完成前，禁止开始任何用户故事实现
 
-- [ ] T008 Implement environment config in `backend/app/config.py` using pydantic-settings: parse `AIDAILY_LLM_*`, `AIDAILY_BEARER_TOKEN`, `AIDAILY_DB_PATH`, `AIDAILY_HOST/PORT`, `AIDAILY_TZ`, `AIDAILY_DAILY_PUSH_TIME`, `AIDAILY_X_RSSHUB_BASE_URL`, `AIDAILY_X_ACCOUNTS`, `AIDAILY_GITHUB_TOKEN`, `AIDAILY_REDDIT_UA`, `AIDAILY_LLM_DAILY_BUDGET_USD` with defaults per `quickstart.md`
-- [ ] T009 [P] Initialize Alembic in `backend/alembic.ini` + `backend/migrations/` with SQLAlchemy autogenerate configured for `app.models`
-- [ ] T010 [P] Create database engine + session factory in `backend/app/infra/db.py` (aiosqlite async engine, sessionmaker, `get_session` FastAPI dependency)
-- [ ] T011 [P] Create base Pydantic schema mix-ins in `backend/app/models/_base.py` (CamelCase alias generator for interface compatibility, `model_config` shared)
-- [ ] T012 [P] Implement unified error response in `backend/app/infra/errors.py`: `ErrorOut(BaseModel){code:int, message:str, requestId:str}`, `AppException(code:int, http_status:int, message:str)`, exception→HTTP handler mapping for codes 1001/1002/1003/1004/1005/1006/2001/2002/2003/9001/9002 per `contracts/README.md` error table
-- [ ] T013 [P] Implement structured logging in `backend/app/infra/logging.py` (JSON formatter, request_id context var, daily rotation in `logs/aidaily.log`)
-- [ ] T014 [P] Implement Bearer auth dependency in `backend/app/infra/auth.py`: `get_authenticated_user(authorization: str = Header(None))` returns user or raises 1003; `require_auth` dependency for write endpoints; reads skip auth (FR-026); use `secrets.compare_digest`
-- [ ] T015 [P] Implement rate limiting in `backend/app/infra/ratelimit.py` using slowapi: per-IP 120/min limiter for reads, per-user 30/min limiter for writes (FR-027); raise 1006 on exceed
-- [ ] T016 [P] Implement request ID middleware in `backend/app/infra/middleware.py`: read `X-Request-Id` header (generate UUID if missing), set context var, echo in response header
-- [ ] T017 [P] Implement pagination validator in `backend/app/infra/pagination.py`: parse `page` (≥1, default 1) + `pageSize` (1–50, default 20); raise 1005 on violation (FR-015, FR-016)
-- [ ] T018 Create FastAPI app skeleton in `backend/app/main.py`: include router, register exception handlers (T012), add middleware (T014, T015, T016), mount `/static` for frontend, mount `/` → `frontend/index.html`; on startup run first-install auto-trigger check (FR-001b) and APScheduler init
-- [ ] T019 [P] Create frontend skeleton in `frontend/index.html`: left index panel + right reader panel layout per spec US1; vendor Alpine.js 3.14.1 + htmx 1.19.5 into `frontend/static/vendor/` (no CDN, no build step)
-- [ ] T020 [P] Create static asset mount + icon assets in `frontend/static/icons/`: x.svg, github.svg, reddit.svg, globe.svg (referenced by `/meta` icon keys per `data-model.md` Source)
+- [x] T008 Implement environment config in `backend/app/config.py` using pydantic-settings: parse `AIDAILY_LLM_*`, `AIDAILY_BEARER_TOKEN`, `AIDAILY_DB_PATH`, `AIDAILY_HOST/PORT`, `AIDAILY_TZ`, `AIDAILY_DAILY_PUSH_TIME`, `AIDAILY_X_RSSHUB_BASE_URL`, `AIDAILY_X_ACCOUNTS`, `AIDAILY_GITHUB_TOKEN`, `AIDAILY_REDDIT_UA`, `AIDAILY_LLM_DAILY_BUDGET_USD` with defaults per `quickstart.md`
+- [x] T009 [P] Initialize Alembic in `backend/alembic.ini` + `backend/migrations/` with SQLAlchemy autogenerate configured for `app.models`
+- [x] T010 [P] Create database engine + session factory in `backend/app/infra/db.py` (aiosqlite async engine, sessionmaker, `get_session` FastAPI dependency)
+- [x] T011 [P] Create base Pydantic schema mix-ins in `backend/app/models/_base.py` (CamelCase alias generator for interface compatibility, `model_config` shared)
+- [x] T012 [P] Implement unified error response in `backend/app/infra/errors.py`: `ErrorOut(BaseModel){code:int, message:str, requestId:str}`, `AppException(code:int, http_status:int, message:str)`, exception→HTTP handler mapping for codes 1001/1002/1003/1004/1005/1006/2001/2002/2003/9001/9002 per `contracts/README.md` error table
+- [x] T013 [P] Implement structured logging in `backend/app/infra/logging.py` (JSON formatter, request_id context var, daily rotation in `logs/aidaily.log`)
+- [x] T014 [P] Implement Bearer auth dependency in `backend/app/infra/auth.py`: `get_authenticated_user(authorization: str = Header(None))` returns user or raises 1003; `require_auth` dependency for write endpoints; reads skip auth (FR-026); use `secrets.compare_digest`
+- [x] T015 [P] Implement rate limiting in `backend/app/infra/ratelimit.py` using slowapi: per-IP 120/min limiter for reads, per-user 30/min limiter for writes (FR-027); raise 1006 on exceed
+- [x] T016 [P] Implement request ID middleware in `backend/app/infra/middleware.py`: read `X-Request-Id` header (generate UUID if missing), set context var, echo in response header
+- [x] T017 [P] Implement pagination validator in `backend/app/infra/pagination.py`: parse `page` (≥1, default 1) + `pageSize` (1–50, default 20); raise 1005 on violation (FR-015, FR-016)
+- [x] T018 Create FastAPI app skeleton in `backend/app/main.py`: include router, register exception handlers (T012), add middleware (T014, T015, T016), mount `/static` for frontend, mount `/` → `frontend/index.html`; on startup run first-install auto-trigger check (FR-001b) and APScheduler init
+- [x] T019 [P] Create frontend skeleton in `frontend/index.html`: left index panel + right reader panel layout per spec US1; vendor Alpine.js 3.14.1 + htmx 1.19.5 into `frontend/static/vendor/` (no CDN, no build step)
+- [x] T020 [P] Create static asset mount + icon assets in `frontend/static/icons/`: x.svg, github.svg, reddit.svg, globe.svg (referenced by `/meta` icon keys per `data-model.md` Source)
 
 **Checkpoint**: Foundation ready — 所有中间件、错误处理、DB 与日志基础设施就位，用户故事实现可并行启动
 

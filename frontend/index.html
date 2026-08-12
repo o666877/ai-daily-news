@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 日报</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main id="app" x-data="dailyApp()" x-init="init()">
+    <!-- Left index panel -->
+    <aside class="panel panel-index">
+      <header class="report-header">
+        <div class="header-row">
+          <h1 class="title">AI 日报</h1>
+          <span class="edition" x-show="issue" x-text="issue?.date"></span>
+          <span class="status-badge" :class="statusBadgeClass()" x-text="statusBadgeText()"></span>
+        </div>
+        <div class="badges" x-show="summary">
+          <div class="badge-group">
+            <template x-for="t in types" :key="t.key">
+              <span class="badge"
+                :class="isActiveType(t.key) ? 'badge-active' : ''"
+                @click="toggleType(t.key)"
+                x-text="`${t.shortName} ${summary?.byType?.[t.key] ?? 0}`"></span>
+            </template>
+          </div>
+          <div class="badge-group">
+            <template x-for="s in sources" :key="s.key">
+              <span class="badge"
+                :class="isActiveSource(s.key) ? 'badge-active' : ''"
+                @click="toggleSource(s.key)"
+                x-text="`${s.short} ${summary?.bySource?.[s.key] ?? 0}`"></span>
+            </template>
+          </div>
+        </div>
+      </header>
+
+      <!-- Skeleton state -->
+      <div class="skeleton-list" x-show="state === 'loading'">
+        <template x-for="i in 5" :key="i">
+          <div class="skeleton-item">
+            <div class="skeleton-line skeleton-w-70"></div>
+            <div class="skeleton-line skeleton-w-50"></div>
+            <div class="skeleton-line skeleton-w-30"></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Empty state: not generated -->
+      <div class="empty-state" x-show="state === 'not_generated'">
+        <p>正在翻今天的墙头…</p>
+        <p class="muted">首装后 5-10 分钟内会自动生成。</p>
+      </div>
+
+      <!-- Generating state: keep skeleton + poll -->
+      <div class="empty-state" x-show="state === 'generating'">
+        <p>今日刊正在生成中…</p>
+        <p class="muted">已开始 LLM 摘要，请稍候。</p>
+      </div>
+
+      <!-- Empty filter result -->
+      <div class="empty-state" x-show="state === 'empty_filter'">
+        <p>今天的货架是空的</p>
+        <p class="muted">换个筛选条件试试。</p>
+      </div>
+
+      <!-- Error state -->
+      <div class="empty-state error" x-show="state === 'error'">
+        <p x-text="errorMessage || '出错了，请稍后再试'"></p>
+        <button class="btn" @click="retryLast()">重试</button>
+      </div>
+
+      <!-- Ready: article list -->
+      <ul class="article-list" x-show="state === 'ready'">
+        <template x-for="(a, idx) in filteredArticles()" :key="a.id">
+          <li class="article-item"
+              :class="selectedArticle?.id === a.id ? 'selected' : ''"
+              @click="selectArticle(a)">
+            <div class="article-head">
+              <span class="article-type" x-text="typeLabel(a.type)"></span>
+              <span class="article-src" x-text="srcLabel(a.src)"></span>
+              <span class="article-time" x-text="a.time"></span>
+              <span class="article-min" x-text="`${a.readingMinutes} 分钟`"></span>
+            </div>
+            <h3 class="article-title" x-text="a.title"></h3>
+            <p class="article-excerpt" x-text="a.excerpt"></p>
+          </li>
+        </template>
+      </ul>
+    </aside>
+
+    <!-- Right reader panel -->
+    <section class="panel panel-reader">
+      <div class="reader-placeholder" x-show="!selectedArticle">
+        <p>← 从左侧选一条资讯</p>
+      </div>
+      <article class="reader-detail" x-show="selectedArticle && detail">
+        <template x-if="detail">
+          <div>
+            <header class="detail-head">
+              <span class="article-type" x-text="typeLabel(detail.type)"></span>
+              <span class="article-src" x-text="srcLabel(detail.src)"></span>
+              <h2 class="detail-title" x-text="detail.title"></h2>
+              <p class="detail-meta">
+                <span x-text="detail.sourceName"></span>
+                · <span x-text="`${detail.readingMinutes} 分钟阅读`"></span>
+                · <span x-text="detail.publishedAt"></span>
+              </p>
+            </header>
+            <p class="detail-lede" x-text="detail.lede"></p>
+            <p class="detail-summary" x-text="detail.summary"></p>
+            <template x-for="(p, i) in detail.body" :key="i">
+              <p class="detail-body" x-text="p"></p>
+            </template>
+            <blockquote class="detail-quote" x-show="detail.quote" x-text="detail.quote"></blockquote>
+            <h4>要点</h4>
+            <ul class="detail-points">
+              <template x-for="(pt, i) in detail.points" :key="i">
+                <li x-text="pt"></li>
+              </template>
+            </ul>
+            <a class="btn btn-primary" :href="detail.sourceUrl" target="_blank" rel="noopener">阅读原文</a>
+          </div>
+        </template>
+      </article>
+    </section>
+  </main>
+
+  <!-- Global toast -->
+  <div class="toast" x-data x-show="false"></div>
+
+  <script src="/static/vendor/alpine.min.js" defer></script>
+  <script src="/static/vendor/htmx.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
