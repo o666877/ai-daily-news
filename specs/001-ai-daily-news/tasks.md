@@ -147,22 +147,22 @@
 
 ### Tests for User Story 3
 
-- [ ] T061 [P] [US3] Contract test for `GET /settings` in `backend/tests/integration/test_settings.py`: 200 with 4-source/4-type keys; 401 1003 no token
-- [ ] T062 [P] [US3] Contract test for `PUT /settings` in `backend/tests/integration/test_settings_put.py`: 200 + X-Effective-At header; 1005 missing key / invalid time / non-boolean; idempotent on repeat
-- [ ] T063 [P] [US3] Contract test for `POST /settings/reset` in `backend/tests/integration/test_settings_reset.py`: returns default Settings; same as first-time GET
-- [ ] T064 [P] [US3] Integration test for next-issue effect in `backend/tests/integration/test_settings_effect.py`: save {github: false} → trigger next-day generate → filtersApplied.sources excludes github
+- [x] T061 [P] [US3] Contract test for `GET /settings` in `backend/tests/integration/test_settings.py`: 200 with 4-source/4-type keys; 401 1003 no token
+- [x] T062 [P] [US3] Contract test for `PUT /settings` in `backend/tests/integration/test_settings_put.py`: 200 + X-Effective-At header; 1005 missing key / invalid time / non-boolean; idempotent on repeat
+- [x] T063 [P] [US3] Contract test for `POST /settings/reset` in `backend/tests/integration/test_settings_reset.py`: returns default Settings; same as first-time GET
+- [x] T064 [P] [US3] Integration test for next-issue effect in `backend/tests/integration/test_settings_effect.py`: save {github: false} → trigger next-day generate → filtersApplied.sources excludes github
 
 ### Implementation for User Story 3
 
-- [ ] T065 [P] [US3] Create `Settings` model + schema in `backend/app/models/settings.py`: singleton row (id=1); 4 source booleans + 4 type booleans + dailyPush{enabled,time} + updatedAt; Pydantic `SettingsIn` (input, no updatedAt) vs `SettingsOut` (with updatedAt)
-- [ ] T066 [US3] Implement `SettingsService` in `backend/app/services/settings_service.py`: `get() → SettingsOut`; `save(s: SettingsIn) → (SettingsOut, effective_at_date)`; `reset() → SettingsOut`; `get_current_filters() → (sources[], types[])` for pipeline; `effective_at` computed as next calendar day in Asia/Shanghai
-- [ ] T067 [US3] Implement `GET /api/v1/settings` in `backend/app/api/settings.py`: require_auth; return SettingsOut
-- [ ] T068 [US3] Implement `PUT /api/v1/settings` in `backend/app/api/settings.py`: require_auth + rate-limit (writes); validate SettingsIn via Pydantic (raises 1005 on validation fail); set response header `X-Effective-At: YYYYMMDD`; idempotent (FR-022)
-- [ ] T069 [US3] Implement `POST /api/v1/settings/reset` in `backend/app/api/settings.py`: require_auth; call SettingsService.reset; set X-Effective-At header
-- [ ] T070 [US3] Build settings panel in `frontend/index.html` + `frontend/static/app.js`: rendered from `/meta` (sources[] + types[] switches) + dailyPush inputs (toggle + time picker); on open fetch `/settings` to backfill
-- [ ] T071 [US3] Implement save handler in `frontend/static/app.js`: PUT full state; read X-Effective-At from response header; toast 「明天的日报将按新口味调配（生效刊期: YYYY-MM-DD）」
-- [ ] T072 [US3] Implement reset button in `frontend/static/app.js`: POST `/settings/reset` → backfill form with returned defaults
-- [ ] T073 [US3] Add validation UI for `dailyPush.time` in `frontend/static/app.js`: HTML5 pattern + server-side 1005 error display in form
+- [x] T065 [P] [US3] Create `Settings` model + schema in `backend/app/models/settings.py`: singleton row (id=1); 4 source booleans + 4 type booleans + dailyPush{enabled,time} + updatedAt; Pydantic `SettingsIn` (input, no updatedAt) vs `SettingsOut` (with updatedAt)
+- [x] T066 [US3] Implement `SettingsService` in `backend/app/services/settings_service.py`: `get() → SettingsOut`; `save(s: SettingsIn) → (SettingsOut, effective_at_date)`; `reset() → SettingsOut`; `get_current_filters() → (sources[], types[])` for pipeline; `effective_at` computed as next calendar day in Asia/Shanghai
+- [x] T067 [US3] Implement `GET /api/v1/settings` in `backend/app/api/settings.py`: require_auth; return SettingsOut
+- [x] T068 [US3] Implement `PUT /api/v1/settings` in `backend/app/api/settings.py`: require_auth + rate-limit (writes); validate SettingsIn via Pydantic (raises 1005 on validation fail); set response header `X-Effective-At: YYYYMMDD`; idempotent (FR-022)
+- [x] T069 [US3] Implement `POST /api/v1/settings/reset` in `backend/app/api/settings.py`: require_auth; call SettingsService.reset; set X-Effective-At header
+- [x] T070 [US3] Build settings panel in `frontend/index.html` + `frontend/static/app.js`: rendered from `/meta` (sources[] + types[] switches) + dailyPush inputs (toggle + time picker); on open fetch `/settings` to backfill
+- [x] T071 [US3] Implement save handler in `frontend/static/app.js`: PUT full state; read X-Effective-At from response header; toast 「明天的日报将按新口味调配（生效刊期: YYYY-MM-DD）」
+- [x] T072 [US3] Implement reset button in `frontend/static/app.js`: POST `/settings/reset` → backfill form with returned defaults
+- [x] T073 [US3] Add validation UI for `dailyPush.time` in `frontend/static/app.js`: HTML5 pattern + server-side 1005 error display in form
 
 **Checkpoint**: US3 完成——偏好设置 + 下一期生效语义可端到端验证
 
@@ -176,16 +176,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T074 [P] [US4] Contract test for `POST /share` in `backend/tests/integration/test_share.py`: 200 + shareId shr_<8hex> + cardUrl + articleTitle; 2001 article not found; 1001 missing articleId; 1003 no token
+- [x] T074 [P] [US4] Contract test for `POST /share` in `backend/tests/integration/test_share.py`: 200 + shareId shr_<8hex> + cardUrl + articleTitle; 2001 article not found; 1001 missing articleId; 1003 no token
 
 ### Implementation for User Story 4
 
-- [ ] T075 [P] [US4] Create `ShareCard` model + schema in `backend/app/models/share_card.py`: shareId (PK, format `shr_<8hex>`), articleId (FK), articleTitle (snapshot), cardUrl, createdAt
-- [ ] T076 Create Alembic migration 002 in `backend/migrations/versions/002_share_cards.py` (additive, no breaking change to existing tables)
-- [ ] T077 [US4] Implement `ShareService` in `backend/app/services/share_service.py`: `generate(articleId) → ShareCard`; verify article exists (raise 2001); generate shareId via `secrets.token_hex(4)`; build cardUrl as `{host}/share/{shareId}`; persist ShareCard; return shape per `contracts/share.md`
-- [ ] T078 [US4] Implement `POST /api/v1/share` in `backend/app/api/share.py`: require_auth; parse `{articleId}`; raise 1001 if missing; call ShareService
-- [ ] T079 [US4] Implement share card viewer page at `GET /share/{shareId}` in `backend/app/api/share.py`: return minimal HTML (articleTitle + link to article detail + 「阅读原文」 button using stored sourceUrl snapshot from Article); no auth (publicly shareable)
-- [ ] T080 [US4] Build 「分享这条」 button in detail view in `frontend/static/app.js`: POST `/share` with articleId; show returned cardUrl + articleTitle in modal; copy-to-clipboard via `navigator.clipboard.writeText`; open-in-new-tab button
+- [x] T075 [P] [US4] Create `ShareCard` model + schema in `backend/app/models/share_card.py`: shareId (PK, format `shr_<8hex>`), articleId (FK), articleTitle (snapshot), cardUrl, createdAt
+- [x] T076 Create Alembic migration 002 in `backend/migrations/versions/002_share_cards.py` (additive, no breaking change to existing tables)
+- [x] T077 [US4] Implement `ShareService` in `backend/app/services/share_service.py`: `generate(articleId) → ShareCard`; verify article exists (raise 2001); generate shareId via `secrets.token_hex(4)`; build cardUrl as `{host}/share/{shareId}`; persist ShareCard; return shape per `contracts/share.md`
+- [x] T078 [US4] Implement `POST /api/v1/share` in `backend/app/api/share.py`: require_auth; parse `{articleId}`; raise 1001 if missing; call ShareService
+- [x] T079 [US4] Implement share card viewer page at `GET /share/{shareId}` in `backend/app/api/share.py`: return minimal HTML (articleTitle + link to article detail + 「阅读原文」 button using stored sourceUrl snapshot from Article); no auth (publicly shareable)
+- [x] T080 [US4] Build 「分享这条」 button in detail view in `frontend/static/app.js`: POST `/share` with articleId; show returned cardUrl + articleTitle in modal; copy-to-clipboard via `navigator.clipboard.writeText`; open-in-new-tab button
 
 **Checkpoint**: US4 完成——分享能力可用，其他用户故事不受影响
 
@@ -199,15 +199,15 @@
 
 ### Tests for User Story 5
 
-- [ ] T081 [P] [US5] Security test in `backend/tests/integration/test_error_sanitization.py`: trigger 9001 via unhandled exception in test route → assert response body exactly `{code, message, requestId}` (no stack, no SQL, no env var values)
+- [x] T081 [P] [US5] Security test in `backend/tests/integration/test_error_sanitization.py`: trigger 9001 via unhandled exception in test route → assert response body exactly `{code, message, requestId}` (no stack, no SQL, no env var values)
 
 ### Implementation for User Story 5
 
-- [ ] T082 [US5] Build global error toast component in `frontend/static/app.js`: read `message` from any non-2xx response; show transient toast; never display `requestId` to user (only console.log for debugging)
-- [ ] T083 [US5] Map business codes to UI behaviors in `frontend/static/app.js`: 1001/1005 → inline form field error; 1002 → chip-area inline message; 1003 → redirect to login panel; 1006 → toast「操作太频繁，稍后再试」; 2001/2002 → block-level empty state; 2003 → keep skeleton + poll; 9001/9002 → global error panel with retry button
-- [ ] T084 [US5] Add retry button for 9001/9002 in `frontend/index.html`: re-issue last failed request via cached request descriptor; preserve current filters & settings context
-- [ ] T085 [US5] Add 401 redirect hook in `frontend/static/app.js`: on 1003 from any write endpoint → show login panel (token input) → on submit cache token in localStorage → retry original request
-- [ ] T086 [US5] Verify error response contract in `backend/app/infra/errors.py`: handler strips all extra fields; assertion test added in T081 guards regression
+- [x] T082 [US5] Build global error toast component in `frontend/static/app.js`: read `message` from any non-2xx response; show transient toast; never display `requestId` to user (only console.log for debugging)
+- [x] T083 [US5] Map business codes to UI behaviors in `frontend/static/app.js`: 1001/1005 → inline form field error; 1002 → chip-area inline message; 1003 → redirect to login panel; 1006 → toast「操作太频繁，稍后再试」; 2001/2002 → block-level empty state; 2003 → keep skeleton + poll; 9001/9002 → global error panel with retry button
+- [x] T084 [US5] Add retry button for 9001/9002 in `frontend/index.html`: re-issue last failed request via cached request descriptor; preserve current filters & settings context
+- [x] T085 [US5] Add 401 redirect hook in `frontend/static/app.js`: on 1003 from any write endpoint → show login panel (token input) → on submit cache token in localStorage → retry original request
+- [x] T086 [US5] Verify error response contract in `backend/app/infra/errors.py`: handler strips all extra fields; assertion test added in T081 guards regression
 
 **Checkpoint**: US5 完成——所有错误码均有稳定 UI 行为，安全契约验证通过
 
