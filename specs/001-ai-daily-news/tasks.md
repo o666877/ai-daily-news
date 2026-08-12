@@ -122,18 +122,18 @@
 
 ### Tests for User Story 2
 
-- [ ] T052 [P] [US2] Contract test for `GET /articles?type=&src=&page=&pageSize=` in `backend/tests/integration/test_articles_list.py`: 200 + appliedFilters echo / empty items[] / 1002 invalid enum / 1005 page out of range / 429 rate limit
-- [ ] T053 [P] [US2] Frontend E2E test in `backend/tests/e2e/test_filter.py`: click type chip → click source chip → assert list filtered
+- [x] T052 [P] [US2] Contract test for `GET /articles?type=&src=&page=&pageSize=` in `backend/tests/integration/test_articles_list.py`: 200 + appliedFilters echo / empty items[] / 1002 invalid enum / 1005 page out of range / 429 rate limit
+- [x] T053 [P] [US2] Frontend E2E test in `backend/tests/e2e/test_filter.py`: click type chip → click source chip → assert list filtered
 
 ### Implementation for User Story 2
 
-- [ ] T054 [US2] Implement `ArticleService.list(filters, page, pageSize)` in `backend/app/services/article_service.py`: type/src/issueId filter via WHERE; pagination via LIMIT/OFFSET; returns `(items, total, appliedFilters)`
-- [ ] T055 [US2] Extend `GET /api/v1/articles` in `backend/app/api/articles.py`: parse type/src/page/pageSize via T017 pagination validator; raise 1002 on invalid enum (FR-013/014/015/016); shape per `contracts/articles-list.md`
-- [ ] T056 [US2] Build type filter chips UI in `frontend/static/app.js`: rendered from cached `/meta` types[]; on click → emit request with `?type=...`; highlight active chip; combined with source filter
-- [ ] T057 [US2] Build source filter chips UI in `frontend/static/app.js`: same pattern as type chips; combined filtering supported
-- [ ] T058 [US2] Add request debouncing in `frontend/static/app.js`: 250ms wait on rapid chip switching; cancel in-flight request via AbortController
-- [ ] T059 [US2] Add "今天的货架是空的" empty state in `frontend/index.html` + `frontend/static/app.js`: shown when `items: []` returned
-- [ ] T060 [US2] Validate invalid enum client-side in `frontend/static/app.js`: reject any chip key not in cached `/meta` (defense in depth) before request; show inline toast
+- [x] T054 [US2] Implement `ArticleService.list(filters, page, pageSize)` in `backend/app/services/article_service.py`: type/src/issueId filter via WHERE; pagination via LIMIT/OFFSET; returns `(items, total, appliedFilters)`
+- [x] T055 [US2] Extend `GET /api/v1/articles` in `backend/app/api/articles.py`: parse type/src/page/pageSize via T017 pagination validator; raise 1002 on invalid enum (FR-013/014/015/016); shape per `contracts/articles-list.md`
+- [x] T056 [US2] Build type filter chips UI in `frontend/static/app.js`: rendered from cached `/meta` types[]; on click → emit request with `?type=...`; highlight active chip; combined with source filter
+- [x] T057 [US2] Build source filter chips UI in `frontend/static/app.js`: same pattern as type chips; combined filtering supported
+- [x] T058 [US2] Add request debouncing in `frontend/static/app.js`: 250ms wait on rapid chip switching; cancel in-flight request via AbortController
+- [x] T059 [US2] Add "今天的货架是空的" empty state in `frontend/index.html` + `frontend/static/app.js`: shown when `items: []` returned
+- [x] T060 [US2] Validate invalid enum client-side in `frontend/static/app.js`: reject any chip key not in cached `/meta` (defense in depth) before request; show inline toast
 
 **Checkpoint**: US2 完成——今日刊 + 双维筛选均独立可用
 

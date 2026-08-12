@@ -7,6 +7,7 @@
 
 const API_BASE = "/api/v1";
 const META_CACHE_KEY = "aidaily_meta";
+const FILTER_DEBOUNCE_MS = 250;
 
 function dailyApp() {
   return {
@@ -24,6 +25,8 @@ function dailyApp() {
     lastRequest: null,
     pollAttempts: 0,
     pollTimer: null,
+    filterTimer: null,
+    filterController: null,
 
     async init() {
       await this.loadMeta();
@@ -32,7 +35,6 @@ function dailyApp() {
 
     // ---- Meta (T050) ----
     async loadMeta() {
-      // Try session cache first
       const cached = sessionStorage.getItem(META_CACHE_KEY);
       if (cached) {
         try {
@@ -99,7 +101,6 @@ function dailyApp() {
       }
     },
 
-    // ---- Polling (T051) ----
     startPolling() {
       if (this.pollTimer) clearTimeout(this.pollTimer);
       if (this.pollAttempts >= 30) {
@@ -133,21 +134,62 @@ function dailyApp() {
       }
     },
 
-    // ---- Filtering (preview for US2 chips) ----
-    filteredArticles() {
-      return this.articles.filter((a) => {
-        if (this.activeType && a.type !== this.activeType) return false;
-        if (this.activeSource && a.src !== this.activeSource) return false;
-        return true;
-      });
+    // ---- Filtering (US2) ----
+    isValidEnum(dimension, key) {
+      const list = dimension === "type" ? this.types : this.sources;
+      return Array.isArray(list) && list.some((x) => x.key === key);
+    },
+
+    scheduleFilteredFetch() {
+      if (this.filterTimer) clearTimeout(this.filterTimer);
+      this.filterTimer = setTimeout(() => this.fetchFiltered(), FILTER_DEBOUNCE_MS);
     },
 
     toggleType(key) {
+      if (!this.isValidEnum("type", key)) {
+        this.showError(`非法类型: ${key}`);
+        return;
+      }
       this.activeType = this.activeType === key ? null : key;
+      this.scheduleFilteredFetch();
     },
+
     toggleSource(key) {
+      if (!this.isValidEnum("source", key)) {
+        this.showError(`非法来源: ${key}`);
+        return;
+      }
       this.activeSource = this.activeSource === key ? null : key;
+      this.scheduleFilteredFetch();
     },
+
+    async fetchFiltered() {
+      if (this.filterController) this.filterController.abort();
+      this.filterController = new AbortController();
+      const params = new URLSearchParams();
+      if (this.activeType) params.set("type", this.activeType);
+      if (this.activeSource) params.set("src", this.activeSource);
+      this.lastRequest = { type: "filter", params: params.toString() };
+      this.state = "loading";
+      try {
+        const res = await fetch(`${API_BASE}/articles?${params.toString()}`, {
+          signal: this.filterController.signal,
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          this.showError(body.message || `HTTP ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        this.articles = data.items || [];
+        this.state = this.articles.length > 0 ? "ready" : "empty_filter";
+      } catch (e) {
+        if (e.name === "AbortError") return;
+        this.showError("网络异常");
+        console.error(e);
+      }
+    },
+
     isActiveType(key) { return this.activeType === key; },
     isActiveSource(key) { return this.activeSource === key; },
 
@@ -206,6 +248,8 @@ function dailyApp() {
         this.loadToday();
       } else if (this.lastRequest.type === "detail" && this.lastRequest.id) {
         this.selectArticle({ id: this.lastRequest.id });
+      } else if (this.lastRequest.type === "filter") {
+        this.fetchFiltered();
       }
     },
   };

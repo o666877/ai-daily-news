@@ -73,7 +73,7 @@
 
       <!-- Ready: article list -->
       <ul class="article-list" x-show="state === 'ready'">
-        <template x-for="(a, idx) in filteredArticles()" :key="a.id">
+        <template x-for="(a, idx) in articles" :key="a.id">
           <li class="article-item"
               :class="selectedArticle?.id === a.id ? 'selected' : ''"
               @click="selectArticle(a)">
