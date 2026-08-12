@@ -68,4 +68,8 @@ exclude = ["migrations/"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80 -q"
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80 -q -p no:langsmith_plugin"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]

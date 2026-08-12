@@ -6,9 +6,16 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
-def to_camel_case(snake: str) -> str:
-    """Convert snake_case → camelCase (RFC compliant)."""
-    return to_camel(snake)
+def to_camel_case(name: str) -> str:
+    """Identity-preserving camelCase.
+
+    For names already in camelCase (e.g. "shortName") returns as-is.
+    For snake_case names (e.g. "issue_id") converts to "issueId".
+    For all-lowercase names with no underscore, returns the name unchanged.
+    """
+    if "_" in name:
+        return to_camel(name)
+    return name
 
 
 class CamelModel(BaseModel):
@@ -16,7 +23,7 @@ class CamelModel(BaseModel):
 
     Per contracts/README.md the API uses camelCase JSON (e.g. `issueId`,
     `publishedAt`, `readingMinutes`). Internal Python keeps snake_case;
-    aliases bridge the two.
+    aliases bridge the two. Names that are already camelCase are preserved.
     """
 
     model_config = ConfigDict(

@@ -46,7 +46,7 @@ async def collect_x_rsshub(client: httpx.AsyncClient | None = None) -> list[RawI
                 "x_account_failed",
                 extra={
                     "source": SourceKey.X.value,
-                    "module": account,
+                    "account": account,
                     "exception_type": type(result).__name__,
                 },
             )

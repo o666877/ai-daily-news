@@ -69,7 +69,7 @@ def _collect_sync(user_agent: str) -> list[RawItem]:
                 "reddit_sub_failed",
                 extra={
                     "source": SourceKey.REDDIT.value,
-                    "module": sub_name,
+                    "subreddit": sub_name,
                     "exception_type": type(exc).__name__,
                 },
             )

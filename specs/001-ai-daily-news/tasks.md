@@ -69,46 +69,46 @@
 
 > **NOTE**: 先写测试并确保 FAIL（Red），再实现（Green）
 
-- [ ] T021 [P] [US1] Contract test for `GET /daily/today` in `backend/tests/integration/test_daily_today.py`: 200 ready / 2002 not-generated / 2003 generating / empty articles
-- [ ] T022 [P] [US1] Contract test for `GET /articles/{id}` in `backend/tests/integration/test_articles_detail.py`: 200 full fields / 2001 not-found
-- [ ] T023 [P] [US1] Contract test for `GET /meta` in `backend/tests/integration/test_meta.py`: returns 4 sources + 4 types, keys exact
-- [ ] T024 [P] [US1] Contract test for `GET /healthz` in `backend/tests/integration/test_healthz.py`: status ok / version / pipeline up
-- [ ] T025 [P] [US1] Integration test for first-install auto-trigger (FR-001b) in `backend/tests/integration/test_first_install.py`: empty DB on startup → 2002 → 5-10 min later 200 ready (mock LLM/collectors via respx)
-- [ ] T026 [P] [US1] Unit test for LLM summarizer in `backend/tests/unit/test_summarizer.py`: 5 output fields (lede/summary/body/points + quote), retry 2x on RateLimitError then mark failed (respx mock Anthropic)
-- [ ] T027 [P] [US1] Unit test for partial failure tolerance (FR-007a) in `backend/tests/unit/test_collector.py`: 1 source fails → issue still ready; all summarizers fail → issue failed
+- [x] T021 [P] [US1] Contract test for `GET /daily/today` in `backend/tests/integration/test_daily_today.py`: 200 ready / 2002 not-generated / 2003 generating / empty articles
+- [x] T022 [P] [US1] Contract test for `GET /articles/{id}` in `backend/tests/integration/test_articles_detail.py`: 200 full fields / 2001 not-found
+- [x] T023 [P] [US1] Contract test for `GET /meta` in `backend/tests/integration/test_meta.py`: returns 4 sources + 4 types, keys exact
+- [x] T024 [P] [US1] Contract test for `GET /healthz` in `backend/tests/integration/test_healthz.py`: status ok / version / pipeline up
+- [x] T025 [P] [US1] Integration test for first-install auto-trigger (FR-001b) in `backend/tests/integration/test_first_install.py`: empty DB on startup → 2002 → 5-10 min later 200 ready (mock LLM/collectors via respx)
+- [x] T026 [P] [US1] Unit test for LLM summarizer in `backend/tests/unit/test_summarizer.py`: 5 output fields (lede/summary/body/points + quote), retry 2x on RateLimitError then mark failed (respx mock Anthropic)
+- [x] T027 [P] [US1] Unit test for partial failure tolerance (FR-007a) in `backend/tests/unit/test_collector.py`: 1 source fails → issue still ready; all summarizers fail → issue failed
 
 ### Models for User Story 1
 
-- [ ] T028 [P] [US1] Create `Article` SQLAlchemy model + Pydantic schema in `backend/app/models/article.py`: 16 fields per `data-model.md` §2; `ArticleListItem` 7-field subset for list responses
-- [ ] T029 [P] [US1] Create `DailyIssue` model + schema in `backend/app/models/daily_issue.py`: 7 fields, IssueStatus enum, `filtersApplied` JSON column
-- [ ] T030 [P] [US1] Create `Source` / `Type` metadata schemas in `backend/app/models/meta.py`: 4 fixed SourceKey enum + 4 TypeKey enum + response shape per `data-model.md` §3 §4
-- [ ] T031 Create Alembic migration 001 in `backend/migrations/versions/001_initial.py`: tables `daily_issues`, `articles`, `settings` (singleton id=1), `share_cards` per `data-model.md` storage mapping
+- [x] T028 [P] [US1] Create `Article` SQLAlchemy model + Pydantic schema in `backend/app/models/article.py`: 16 fields per `data-model.md` §2; `ArticleListItem` 7-field subset for list responses
+- [x] T029 [P] [US1] Create `DailyIssue` model + schema in `backend/app/models/daily_issue.py`: 7 fields, IssueStatus enum, `filtersApplied` JSON column
+- [x] T030 [P] [US1] Create `Source` / `Type` metadata schemas in `backend/app/models/meta.py`: 4 fixed SourceKey enum + 4 TypeKey enum + response shape per `data-model.md` §3 §4
+- [x] T031 Create Alembic migration 001 in `backend/migrations/versions/001_initial.py`: tables `daily_issues`, `articles`, `settings` (singleton id=1), `share_cards` per `data-model.md` storage mapping
 
 ### Pipeline for User Story 1
 
-- [ ] T032 [P] [US1] Create default X account list in `backend/app/pipeline/defaults/x_accounts.py`: ~25 AI KOL usernames (karpathy/ylecun/goodfellow_ian/_jasonwei/rasbt/swyx/simonw/miramurati/gdb/sama/emilymenonbender/fchollet/AnthropicAI/OpenAI/huggingface/StabilityAI/MistralAI + others); overridable by `AIDAILY_X_ACCOUNTS` env var
-- [ ] T033 [P] [US1] Implement LLM client in `backend/app/infra/llm.py`: `LLMClient(base_url, api_key, model)` using Anthropic SDK with `base_url` param; `async summarize(prompt) → SummaryResult`; `LLMProviderError` exception
-- [ ] T034 [US1] Implement summarizer in `backend/app/pipeline/summarizer.py`: take RawItem → call LLMClient with structured prompt → return 5 fields (lede/summary/body/quote/points); retry policy via tenacity (max 2 attempts, exponential backoff on RateLimitError/APITimeoutError); per-call token logging to `llm_calls` table; daily budget enforcement (raise 9002 if exceeded)
-- [ ] T035 [P] [US1] Implement GitHub collector in `backend/app/pipeline/collectors/github.py`: REST v3 search `/search/repositories?q=...&sort=stars` for trending AI repos created in last 7 days + `/users/:user/events/public` for watched maintainers; auth via `AIDAILY_GITHUB_TOKEN`; trending HTML fallback via selectolax when quota exhausted; returns `list[RawItem]`
-- [ ] T036 [P] [US1] Implement Reddit collector in `backend/app/pipeline/collectors/reddit.py`: PRAW; subreddits `MachineLearning`/`LocalLLaMA`/`OpenAI`/`singularity`/`AgentAI`; `top(day)` limit 10-15 per sub; auth via OAuth + `AIDAILY_REDDIT_UA`; returns `list[RawItem]`
-- [ ] T037 [P] [US1] Implement Web RSS collector in `backend/app/pipeline/collectors/web.py`: feedparser on curated OPML (Simon Willison / Stratechery / HF blog / Anthropic / OpenAI / Latent Space / Import AI); trafilatura for non-RSS discovered URLs; returns `list[RawItem]`
-- [ ] T038 [P] [US1] Implement X RSSHub collector in `backend/app/pipeline/collectors/x_rsshub.py`: iterate `AIDAILY_X_ACCOUNTS` (or default list T032), fetch `{AIDAILY_X_RSSHUB_BASE_URL}/twitter/user/{username}` concurrently via httpx, parse RSS via feedparser; if `AIDAILY_X_RSSHUB_BASE_URL` empty → return empty list (silent skip); per-account failures logged and skipped; returns `list[RawItem]`
-- [ ] T039 [US1] Implement collector orchestrator in `backend/app/pipeline/collector.py`: invoke 4 collectors concurrently via asyncio.gather(return_exceptions=True); per-source failures (FR-007a) → log structured warning + return successful items only; dedup by normalized `source_url`; classify `type` via LLM classification step (one extra LLM call per item OR rule-based keywords); returns `list[RawItem]`
-- [ ] T040 [US1] Implement issue generation pipeline in `backend/app/pipeline/generator.py`: `generate_issue(date) → DailyIssue` — load current Settings snapshot → call collector → call summarizer per item → persist DailyIssue(status=generating → ready/failed) → persist Articles → write `filtersApplied`; idempotent on issueId (re-entry returns existing ready issue)
-- [ ] T041 [US1] Implement scheduler integration in `backend/app/infra/scheduler.py`: APScheduler with SQLite jobstore; daily cron at `AIDAILY_DAILY_PUSH_TIME` (HH:mm Asia/Shanghai); `misfire_grace_time` for restart-tolerance; expose `run_once(date)` for dev/debug
+- [x] T032 [P] [US1] Create default X account list in `backend/app/pipeline/defaults/x_accounts.py`: ~25 AI KOL usernames (karpathy/ylecun/goodfellow_ian/_jasonwei/rasbt/swyx/simonw/miramurati/gdb/sama/emilymenonbender/fchollet/AnthropicAI/OpenAI/huggingface/StabilityAI/MistralAI + others); overridable by `AIDAILY_X_ACCOUNTS` env var
+- [x] T033 [P] [US1] Implement LLM client in `backend/app/infra/llm.py`: `LLMClient(base_url, api_key, model)` using Anthropic SDK with `base_url` param; `async summarize(prompt) → SummaryResult`; `LLMProviderError` exception
+- [x] T034 [US1] Implement summarizer in `backend/app/pipeline/summarizer.py`: take RawItem → call LLMClient with structured prompt → return 5 fields (lede/summary/body/quote/points); retry policy via tenacity (max 2 attempts, exponential backoff on RateLimitError/APITimeoutError); per-call token logging to `llm_calls` table; daily budget enforcement (raise 9002 if exceeded)
+- [x] T035 [P] [US1] Implement GitHub collector in `backend/app/pipeline/collectors/github.py`: REST v3 search `/search/repositories?q=...&sort=stars` for trending AI repos created in last 7 days + `/users/:user/events/public` for watched maintainers; auth via `AIDAILY_GITHUB_TOKEN`; trending HTML fallback via selectolax when quota exhausted; returns `list[RawItem]`
+- [x] T036 [P] [US1] Implement Reddit collector in `backend/app/pipeline/collectors/reddit.py`: PRAW; subreddits `MachineLearning`/`LocalLLaMA`/`OpenAI`/`singularity`/`AgentAI`; `top(day)` limit 10-15 per sub; auth via OAuth + `AIDAILY_REDDIT_UA`; returns `list[RawItem]`
+- [x] T037 [P] [US1] Implement Web RSS collector in `backend/app/pipeline/collectors/web.py`: feedparser on curated OPML (Simon Willison / Stratechery / HF blog / Anthropic / OpenAI / Latent Space / Import AI); trafilatura for non-RSS discovered URLs; returns `list[RawItem]`
+- [x] T038 [P] [US1] Implement X RSSHub collector in `backend/app/pipeline/collectors/x_rsshub.py`: iterate `AIDAILY_X_ACCOUNTS` (or default list T032), fetch `{AIDAILY_X_RSSHUB_BASE_URL}/twitter/user/{username}` concurrently via httpx, parse RSS via feedparser; if `AIDAILY_X_RSSHUB_BASE_URL` empty → return empty list (silent skip); per-account failures logged and skipped; returns `list[RawItem]`
+- [x] T039 [US1] Implement collector orchestrator in `backend/app/pipeline/collector.py`: invoke 4 collectors concurrently via asyncio.gather(return_exceptions=True); per-source failures (FR-007a) → log structured warning + return successful items only; dedup by normalized `source_url`; classify `type` via LLM classification step (one extra LLM call per item OR rule-based keywords); returns `list[RawItem]`
+- [x] T040 [US1] Implement issue generation pipeline in `backend/app/pipeline/generator.py`: `generate_issue(date) → DailyIssue` — load current Settings snapshot → call collector → call summarizer per item → persist DailyIssue(status=generating → ready/failed) → persist Articles → write `filtersApplied`; idempotent on issueId (re-entry returns existing ready issue)
+- [x] T041 [US1] Implement scheduler integration in `backend/app/infra/scheduler.py`: APScheduler with SQLite jobstore; daily cron at `AIDAILY_DAILY_PUSH_TIME` (HH:mm Asia/Shanghai); `misfire_grace_time` for restart-tolerance; expose `run_once(date)` for dev/debug
 
 ### API & Frontend for User Story 1
 
-- [ ] T042 [US1] Implement `IssueService` in `backend/app/services/issue_service.py`: `get_today() → (DailyIssue, summary, list[ArticleListItem])`; `get_by_filters(...)` reused by US2
-- [ ] T043 [US1] Implement `GET /api/v1/daily/today` in `backend/app/api/daily.py`: call IssueService; return shape per `contracts/daily-today.md`; 200 ready / 404 2002 not-generated / 409 2003 generating
-- [ ] T044 [US1] Implement `GET /api/v1/articles/{id}` in `backend/app/api/articles.py`: return full Article; 404 2001 if not found (extend in US2 for `GET /articles`)
-- [ ] T045 [P] [US1] Implement `GET /api/v1/meta` in `backend/app/api/meta.py`: return 4 sources + 4 types per `contracts/meta.md` (no DB hit; built from `app/models/meta.py` constants)
-- [ ] T046 [P] [US1] Implement `GET /api/v1/healthz` in `backend/app/api/healthz.py`: return `{status, version, pipeline: {collector, summarizer}}` per `contracts/healthz.md`; pipeline status derived from last collector/summarizer outcomes
-- [ ] T047 [US1] Wire first-install auto-trigger in `backend/app/main.py` FastAPI startup event: query `SELECT COUNT(*) FROM daily_issues`; if 0 → schedule immediate background `generate_issue(today)` (FR-001b)
-- [ ] T048 [US1] Build left index panel in `frontend/index.html` + `frontend/static/app.js`: report header (date / edition / status badge), summary badges byType + bySource, articles list rendering 7 fields, skeleton state during loading, "正在翻今天的墙头" state on 2002
-- [ ] T049 [US1] Build right reader detail view in `frontend/static/app.js`: on article click → `GET /articles/{id}` → render lede/summary/body[]/quote/points/sourceName/readingMinutes/publishedAt; 「阅读原文」 button opens sourceUrl in new tab
-- [ ] T050 [US1] Wire `/meta` call on page load in `frontend/static/app.js`: cache to sessionStorage; never hardcode source/type lists (SC-008/SC-011)
-- [ ] T051 [US1] Add polling for 2003 generating state in `frontend/static/app.js`: exponential backoff (initial 5s, max 15s, up to 30 attempts)
+- [x] T042 [US1] Implement `IssueService` in `backend/app/services/issue_service.py`: `get_today() → (DailyIssue, summary, list[ArticleListItem])`; `get_by_filters(...)` reused by US2
+- [x] T043 [US1] Implement `GET /api/v1/daily/today` in `backend/app/api/daily.py`: call IssueService; return shape per `contracts/daily-today.md`; 200 ready / 404 2002 not-generated / 409 2003 generating
+- [x] T044 [US1] Implement `GET /api/v1/articles/{id}` in `backend/app/api/articles.py`: return full Article; 404 2001 if not found (extend in US2 for `GET /articles`)
+- [x] T045 [P] [US1] Implement `GET /api/v1/meta` in `backend/app/api/meta.py`: return 4 sources + 4 types per `contracts/meta.md` (no DB hit; built from `app/models/meta.py` constants)
+- [x] T046 [P] [US1] Implement `GET /api/v1/healthz` in `backend/app/api/healthz.py`: return `{status, version, pipeline: {collector, summarizer}}` per `contracts/healthz.md`; pipeline status derived from last collector/summarizer outcomes
+- [x] T047 [US1] Wire first-install auto-trigger in `backend/app/main.py` FastAPI startup event: query `SELECT COUNT(*) FROM daily_issues`; if 0 → schedule immediate background `generate_issue(today)` (FR-001b)
+- [x] T048 [US1] Build left index panel in `frontend/index.html` + `frontend/static/app.js`: report header (date / edition / status badge), summary badges byType + bySource, articles list rendering 7 fields, skeleton state during loading, "正在翻今天的墙头" state on 2002
+- [x] T049 [US1] Build right reader detail view in `frontend/static/app.js`: on article click → `GET /articles/{id}` → render lede/summary/body[]/quote/points/sourceName/readingMinutes/publishedAt; 「阅读原文」 button opens sourceUrl in new tab
+- [x] T050 [US1] Wire `/meta` call on page load in `frontend/static/app.js`: cache to sessionStorage; never hardcode source/type lists (SC-008/SC-011)
+- [x] T051 [US1] Add polling for 2003 generating state in `frontend/static/app.js`: exponential backoff (initial 5s, max 15s, up to 30 attempts)
 
 **Checkpoint**: US1 MVP 可独立交付——首装 → 自动生成 → 今日刊浏览 → 详情阅读 → 阅读原文端到端跑通
 

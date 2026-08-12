@@ -132,7 +132,7 @@ class LLMClient:
                     logger.info(
                         "llm_tokens",
                         extra={
-                            "module": "llm",
+                            "component": "llm",
                             "input_tokens": getattr(resp.usage, "input_tokens", 0),
                             "output_tokens": getattr(resp.usage, "output_tokens", 0),
                         },

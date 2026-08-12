@@ -49,7 +49,7 @@ async def collect_web(client: httpx.AsyncClient | None = None) -> list[RawItem]:
                     "web_feed_failed",
                     extra={
                         "source": SourceKey.WEB.value,
-                        "module": name,
+                        "feed": name,
                         "exception_type": type(exc).__name__,
                     },
                 )

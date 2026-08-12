@@ -55,7 +55,7 @@ def _print_bearer_token_if_generated() -> None:
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle hook."""
     configure_logging()
-    logger.info("server_starting", extra={"module": "main", "version": __version__})
+    logger.info("server_starting", extra={"component": "main", "version": __version__})
     _print_bearer_token_if_generated()
     await init_db(get_engine())
     # First-install auto-trigger (FR-001b).
@@ -95,7 +95,7 @@ async def _maybe_trigger_first_issue() -> None:
         if count == 0:
             logger.info(
                 "first_install_trigger",
-                extra={"module": "main"},
+                extra={"component": "main"},
             )
             asyncio.create_task(_first_install_generate())
     except Exception as exc:
