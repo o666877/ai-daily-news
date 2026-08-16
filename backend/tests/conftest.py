@@ -36,6 +36,8 @@ def _isolated_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("AIDAILY_BEARER_TOKEN", "test-bearer-token")
     monkeypatch.setenv("AIDAILY_TZ", "UTC")
     monkeypatch.setenv("AIDAILY_DAILY_PUSH_TIME", "08:00")
+    # X collector: zero retry backoff so failure-path tests stay fast.
+    monkeypatch.setenv("AIDAILY_X_RETRY_BACKOFF_S", "0")
     reset_settings_cache()
     # Reset DB engine cache so new settings apply.
     db_module._engine = None
@@ -107,16 +109,24 @@ class _noop_lifespan:
 
 @pytest_asyncio.fixture
 async def ready_issue_with_articles(db_session):
-    """Seed: a ready DailyIssue + 2 articles (one reddit/agent, one x/tools)."""
+    """Seed: a ready DailyIssue + 2 articles (one reddit/agent, one x/tools).
+
+    Uses today's date (UTC) so /daily/today resolves correctly regardless of
+    when the test suite runs.
+    """
     from app.models.article import ArticleORM
     from app.models.daily_issue import DailyIssueORM
 
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_gen = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0)
+
     issue = DailyIssueORM(
-        id="20260812",
-        date="2026-08-12",
+        id=today,
+        date=today_iso,
         edition=1,
         status="ready",
-        generated_at=datetime(2026, 8, 12, 8, 0, tzinfo=timezone.utc),
+        generated_at=today_gen,
         filters_applied={
             "sources": ["x", "github", "reddit", "web"],
             "types": ["agent", "self_improve", "open_source", "tools"],
@@ -126,15 +136,15 @@ async def ready_issue_with_articles(db_session):
     await db_session.commit()  # commit issue first so FK resolves
 
     art1 = ArticleORM(
-        id="20260812-0001",
-        issue_id="20260812",
+        id=f"{today}-0001",
+        issue_id=today,
         type="agent",
         src="reddit",
         title="Reddit Agent Post",
         excerpt="Reddit agent excerpt",
         lede="Reddit lede paragraph",
         summary="Reddit one-liner",
-        body=["Body para 1", "Body para 2"],
+        body="Body para 1\n\nBody para 2",
         quote=None,
         points=["Point 1", "Point 2"],
         time="09:00",
@@ -144,15 +154,15 @@ async def ready_issue_with_articles(db_session):
         published_at="2026-08-12T09:00:00+00:00",
     )
     art2 = ArticleORM(
-        id="20260812-0002",
-        issue_id="20260812",
+        id=f"{today}-0002",
+        issue_id=today,
         type="tools",
         src="x",
         title="X Tools Post",
         excerpt="X tools excerpt",
         lede="X lede",
         summary="X summary",
-        body=["X body"],
+        body="X body",
         quote="quote text",
         points=["X point"],
         time="10:00",
@@ -168,18 +178,20 @@ async def ready_issue_with_articles(db_session):
 
 
 def mock_summary_response(
+    title: str = "测试用中文标题",
     lede: str = "导语段落",
     summary: str = "一句话总结。",
-    body: list[str] | None = None,
+    body: str | None = None,
     quote: str | None = None,
     points: list[str] | None = None,
 ) -> str:
     """Return JSON text as if from the LLM."""
     return json.dumps(
         {
+            "title": title,
             "lede": lede,
             "summary": summary,
-            "body": body or ["段一", "段二"],
+            "body": body or "段一\n\n段二",
             "quote": quote,
             "points": points or ["要点 1", "要点 2"],
         },

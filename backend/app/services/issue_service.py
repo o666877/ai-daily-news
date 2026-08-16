@@ -1,4 +1,8 @@
-"""IssueService: get_today() returns (DailyIssue, summary, list[ArticleListItem])."""
+"""IssueService: get_today() returns (DailyIssue, summary, list[ArticleListItem]).
+
+US1: each ArticleListItem carries compositeScore (int | null). Ordering:
+composite_score DESC, time DESC (legacy rows with NULL composite_score sort last).
+"""
 
 from __future__ import annotations
 
@@ -7,12 +11,14 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.infra.errors import (
     IssueGeneratingError,
     IssueNotGeneratedError,
 )
 from app.models.article import ArticleListItem, ArticleORM
+from app.models.article_score import ArticleScoreORM
 from app.models.daily_issue import (
     DailyIssue,
     DailyIssueORM,
@@ -56,6 +62,19 @@ async def _compute_summary(
     return DailyIssueSummary(byType=by_type, bySource=by_source)
 
 
+def is_must_read(article_id: str) -> bool:
+    """True iff the article was persisted in the issue's editorial top-3.
+
+    Article ids are f"{issue_id}-{index:04d}" assigned in display order at
+    generation time, so suffix ≤ 3 marks the must-read picks regardless of
+    how the list is later filtered or re-sorted.
+    """
+    try:
+        return int(article_id.rsplit("-", 1)[-1]) <= 3
+    except (ValueError, IndexError):
+        return False
+
+
 async def get_today(
     session: AsyncSession, now: datetime | None = None
 ) -> tuple[DailyIssue, DailyIssueSummary, list[ArticleListItem]]:
@@ -80,10 +99,17 @@ async def get_today(
 
     issue = await _to_daily_issue(orm, count)
     summary = await _compute_summary(session, issue_id)
+    # US1: order by composite_score DESC (NULLS LAST), time DESC, id DESC.
     items_result = await session.execute(
         select(ArticleORM)
+        .outerjoin(ArticleScoreORM, ArticleScoreORM.article_id == ArticleORM.id)
         .where(ArticleORM.issue_id == issue_id)
-        .order_by(ArticleORM.id)
+        .order_by(
+            ArticleScoreORM.composite_score.desc().nullslast(),
+            ArticleORM.time.desc(),
+            ArticleORM.id.desc(),
+        )
+        .options(selectinload(ArticleORM.score))
     )
     items = [
         ArticleListItem(
@@ -94,6 +120,8 @@ async def get_today(
             src=SourceKey(a.src),
             time=a.time,
             readingMinutes=a.reading_minutes,
+            compositeScore=a.score.composite_score if a.score else None,
+            mustRead=is_must_read(a.id),
         )
         for a in items_result.scalars()
     ]

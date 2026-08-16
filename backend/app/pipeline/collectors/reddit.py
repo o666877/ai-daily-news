@@ -1,16 +1,41 @@
-"""Reddit collector (T036).
+"""Reddit collector — public Atom `.rss` feed with custom User-Agent.
 
-Uses PRAW (Reddit OAuth). Subreddits: MachineLearning/LocalLLaMA/OpenAI/
-singularity/AgentAI. Sort by top(day), limit 10-15 per sub.
+Previous implementations:
+1. (early) Anonymous `.json` HTTP fetches.
+2. (T036) OpenCLI bridge to a logged-in Chrome session.
 
-PRAW is synchronous; runs in thread executor.
+Both broke: Reddit now 403s the `www.reddit.com/*.json` endpoint for all
+non-logged-in clients on datacenter / many ISP IPs regardless of
+User-Agent, and OpenCLI depends on a browser extension that is not always
+connected. The endpoint that still serves anonymous clients is the
+**Atom feed** at `https://www.reddit.com/r/<sub>/top/.rss?t=week`, which
+works with any non-default User-Agent and returns standard Atom XML.
+
+Design:
+- Curated list of AI-relevant subreddits at module top.
+- Per-subreddit: fetch `https://www.reddit.com/r/<sub>/top/.rss?t=week`
+  via httpx.AsyncClient using a configurable User-Agent, parse with
+  `feedparser` (already a project dependency).
+- 72h freshness window aligned with the web collector.
+- Per-subreddit failures (HTTP 4xx/5xx, parse errors, timeouts) are
+  logged and skipped (FR-007a); other subs still return data.
+- All subs fetched concurrently via asyncio.gather(return_exceptions=True).
+- The Atom feed does not expose score / num_comments; those fields are
+  omitted from `extra` (the classifier does not depend on them).
+
+Public surface preserved: `async def collect_reddit() -> list[RawItem]`.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
+from datetime import datetime, timezone
 from typing import Any
+
+import feedparser
+import httpx
 
 from app.config import get_settings
 from app.models.article import RawItem
@@ -18,84 +43,241 @@ from app.models.meta import SourceKey
 
 logger = logging.getLogger("aidaily.collector.reddit")
 
-SUBREDDITS = ["MachineLearning", "LocalLLaMA", "OpenAI", "singularity", "AgentAI"]
-PER_SUB_LIMIT = 12
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+# AI-relevant subreddits. Mix of research, applied AI, open source, and
+# broad community hubs so a single sub going quiet doesn't zero the source.
+SUBREDDITS: list[str] = [
+    "MachineLearning",  # research papers, releases — slow but authoritative
+    "artificial",       # general AI news, broad community
+    "OpenAI",           # vendor releases / discussion
+    "Anthropic",        # vendor releases / discussion
+    "localLLaMA",       # open-source LLM releases, high signal
+]
+
+TIME_RANGE: str = "week"          # Reddit `t=` param; week gives the 72h filter room.
+PER_SUB_LIMIT_PARAM: int = 25     # passed in the URL; Reddit caps around 100.
+FRESH_WINDOW_HOURS: int = 72      # drop posts older than this (aligns with web collector).
+REQUEST_TIMEOUT: float = 10.0     # per-request budget; subs run concurrently.
+CONCURRENCY: int = 5              # bounded parallelism safety net.
+RAW_TEXT_CAP: int = 4000          # cap body so giant posts don't blow up the LLM.
+
+# Reddit 403s the default httpx UA on most IPs; caller may override via AIDAILY_REDDIT_UA.
+DEFAULT_USER_AGENT: str = "aidaily/1.0 (research; +https://github.com/aidaily/aidaily)"
+
+# Reddit embeds the post id in entry <id> like "/r/sub/comments/<id>/...".
+_POST_ID_RE = re.compile(r"/comments/([a-z0-9]{3,12})", re.IGNORECASE)
+# Simple tag stripper for the HTML <content> body.
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+# ---------------------------------------------------------------------------
+# Public entrypoint
+# ---------------------------------------------------------------------------
 
 
 async def collect_reddit() -> list[RawItem]:
-    settings = get_settings()
-    try:
-        return await asyncio.to_thread(_collect_sync, settings.reddit_ua)
-    except Exception as exc:
-        logger.warning(
-            "reddit_failed",
-            extra={"source": SourceKey.REDDIT.value, "exception_type": type(exc).__name__},
+    """Fetch top-of-week posts for each configured subreddit via the public
+    Atom `.rss` feed. Returns an empty list if all subs fail; per-sub
+    failures are logged and skipped (FR-007a).
+    """
+    user_agent = _resolve_user_agent()
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async with httpx.AsyncClient(
+        headers={
+            "User-Agent": user_agent,
+            "Accept": "application/atom+xml, application/xml, text/xml, */*",
+        },
+        timeout=REQUEST_TIMEOUT,
+        follow_redirects=True,
+    ) as client:
+        results = await asyncio.gather(
+            *(_collect_one_sub(sem, client, sub) for sub in SUBREDDITS),
+            return_exceptions=True,
         )
-        return []
 
-
-def _collect_sync(user_agent: str) -> list[RawItem]:
-    try:
-        import praw  # type: ignore[import-untyped]
-    except ImportError:  # pragma: no cover
-        logger.warning("praw_unavailable")
-        return []
-    # PRAW supports read-only mode without OAuth for limited access.
-    reddit = praw.Reddit(
-        client_id="anonymous",
-        client_secret=None,
-        user_agent=user_agent,
-    )
-    try:
-        reddit.read_only = True
-    except Exception:  # pragma: no cover
-        pass
     items: list[RawItem] = []
-    for sub_name in SUBREDDITS:
-        try:
-            sub = reddit.subreddit(sub_name)
-            for submission in sub.top(time_filter="day", limit=PER_SUB_LIMIT):
-                if not submission.title or not submission.permalink:
-                    continue
-                url = submission.url
-                # If URL points back to reddit comments, use permalink.
-                if "reddit.com" not in url:
-                    pass
-                else:
-                    url = f"https://www.reddit.com{submission.permalink}"
-                items.append(_to_raw_item(sub_name, submission, url))
-        except Exception as exc:
+    failures = 0
+    for sub_name, result in zip(SUBREDDITS, results, strict=False):
+        if isinstance(result, Exception):
+            failures += 1
             logger.warning(
                 "reddit_sub_failed",
                 extra={
                     "source": SourceKey.REDDIT.value,
                     "subreddit": sub_name,
-                    "exception_type": type(exc).__name__,
+                    "exception_type": type(result).__name__,
                 },
             )
+            continue
+        items.extend(result)
+
+    if failures == len(SUBREDDITS) and SUBREDDITS:
+        logger.warning(
+            "reddit_all_subs_failed",
+            extra={"source": SourceKey.REDDIT.value, "sub_count": failures},
+        )
     return items
 
 
-def _to_raw_item(sub_name: str, submission: Any, url: str) -> RawItem:
-    title = str(getattr(submission, "title", "")).strip()
-    body_text = str(getattr(submission, "selftext", "")).strip()
-    score = int(getattr(submission, "score", 0) or 0)
-    created = float(getattr(submission, "created_utc", 0.0) or 0.0)
-    from datetime import datetime, timezone
+# ---------------------------------------------------------------------------
+# Per-subreddit implementation
+# ---------------------------------------------------------------------------
 
-    published = (
-        datetime.fromtimestamp(created, tz=timezone.utc).isoformat() if created else ""
-    )
-    raw = f"{title}\n\n{body_text}" if body_text else title
+
+async def _collect_one_sub(
+    sem: asyncio.Semaphore,
+    client: httpx.AsyncClient,
+    sub_name: str,
+) -> list[RawItem]:
+    """Fetch one subreddit's top.rss, filter to fresh posts, build RawItems."""
+    async with sem:
+        url = (
+            f"https://www.reddit.com/r/{sub_name}/top/.rss"
+            f"?t={TIME_RANGE}&limit={PER_SUB_LIMIT_PARAM}"
+        )
+        response = await client.get(url)
+        response.raise_for_status()
+        content_bytes = response.content
+
+    parsed = feedparser.parse(content_bytes)
+    if not parsed.entries:
+        if parsed.bozo:
+            logger.warning(
+                "reddit_sub_parse_error",
+                extra={
+                    "source": SourceKey.REDDIT.value,
+                    "subreddit": sub_name,
+                    "bozo_exception": repr(parsed.bozo_exception),
+                },
+            )
+        else:
+            logger.info(
+                "reddit_sub_empty",
+                extra={"source": SourceKey.REDDIT.value, "subreddit": sub_name},
+            )
+        return []
+
+    items: list[RawItem] = []
+    now = datetime.now(tz=timezone.utc)
+    for entry in parsed.entries:
+        item = _build_item(sub_name, entry, now)
+        if item is not None:
+            items.append(item)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_user_agent() -> str:
+    """Pull the configured Reddit UA, falling back to the module default."""
+    try:
+        ua = get_settings().reddit_ua
+    except Exception:  # pragma: no cover — defensive; settings always available.
+        ua = ""
+    return (ua or "").strip() or DEFAULT_USER_AGENT
+
+
+def _build_item(
+    sub_name: str,
+    entry: Any,
+    now: datetime,
+) -> RawItem | None:
+    """Convert a feedparser entry to a RawItem.
+
+    Returns None when title/link is missing, or when the post is older
+    than FRESH_WINDOW_HOURS. Entries with unknown timestamps are kept.
+    """
+    title = (getattr(entry, "title", "") or "").strip()
+    if not title:
+        return None
+
+    link = (getattr(entry, "link", "") or "").strip()
+    if not link:
+        return None
+
+    published_at, age_h = _extract_time(entry)
+    if age_h is not None and age_h > FRESH_WINDOW_HOURS:
+        return None
+    if not published_at:
+        published_at = now.isoformat()
+
+    raw_text = _extract_body(entry) or title
+    raw_text = raw_text[:RAW_TEXT_CAP]
+
+    post_id = _extract_post_id(link, entry)
+
+    extra: dict[str, Any] = {
+        "subreddit": sub_name,
+        "post_id": post_id,
+    }
+    if age_h is not None:
+        extra["age_h"] = round(age_h, 1)
+
     return RawItem(
         sourceKey=SourceKey.REDDIT,
         sourceName=f"reddit.com/r/{sub_name}",
-        sourceUrl=url,
+        sourceUrl=link,
         title=title,
-        rawText=raw,
-        publishedAt=published,
-        extra={"score": score, "subreddit": sub_name},
+        rawText=raw_text,
+        publishedAt=published_at,
+        extra=extra,
     )
 
 
-__all__ = ["collect_reddit"]
+def _extract_time(entry: Any) -> tuple[str, float | None]:
+    """Return (iso_published, age_hours). Age is None when no timestamp parses."""
+    for attr in ("published_parsed", "updated_parsed"):
+        st = getattr(entry, attr, None)
+        if not st:
+            continue
+        try:
+            dt = datetime(*st[:6], tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        iso = dt.isoformat()
+        age_h = (datetime.now(tz=timezone.utc) - dt).total_seconds() / 3600.0
+        return iso, age_h
+    # Fall back to the raw string field if present (no age computable).
+    for attr in ("published", "updated"):
+        raw = getattr(entry, attr, None)
+        if raw:
+            return raw, None
+    return "", None
+
+
+def _extract_body(entry: Any) -> str:
+    """Pull the post body, strip HTML tags, collapse whitespace."""
+    for attr in ("content", "summary", "description"):
+        value = getattr(entry, attr, None)
+        if not value:
+            continue
+        if isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, dict) and first.get("value"):
+                value = first["value"]
+            else:
+                continue
+        if isinstance(value, str) and value:
+            text = _TAG_RE.sub(" ", value)
+            return " ".join(text.split())
+    return ""
+
+
+def _extract_post_id(link: str, entry: Any) -> str:
+    """Best-effort Reddit post id from the permalink or entry id."""
+    m = _POST_ID_RE.search(link)
+    if m:
+        return m.group(1)
+    entry_id = getattr(entry, "id", "") or ""
+    m = _POST_ID_RE.search(entry_id)
+    return m.group(1) if m else ""
+
+
+__all__ = ["collect_reddit", "SUBREDDITS"]

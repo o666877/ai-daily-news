@@ -28,7 +28,7 @@ def _make_raw(source: SourceKey, url: str) -> RawItem:
         sourceUrl=url,
         title=f"{source.value} item",
         rawText=f"Raw text from {source.value}.",
-        publishedAt="2026-08-12T08:00:00+00:00",
+        publishedAt=datetime.now(timezone.utc).isoformat(),
         suggestedType=TypeKey.TOOLS,
     )
 
@@ -36,7 +36,7 @@ def _make_raw(source: SourceKey, url: str) -> RawItem:
 class _SuccessClient:
     async def summarize(self, title, source, raw_text):
         return llm_module._parse_summary_response(
-            '{"lede": "l", "summary": "s", "body": ["p"], "quote": null, "points": ["x"]}'
+            '{"title": "t", "lede": "l", "summary": "s", "body": ["p"], "quote": null, "points": ["x"]}'
         )
 
 
@@ -67,8 +67,14 @@ async def test_one_collector_failure_others_succeed(monkeypatch, db_session):
 
 
 @pytest.mark.asyncio
-async def test_all_summarizers_fail_issue_failed(monkeypatch, db_session):
-    """If every item's summarization fails, issue ends in 'failed'."""
+async def test_all_summarizers_fail_falls_back_to_rules(monkeypatch, db_session):
+    """US1: if every item's LLM summarization fails, all articles fall back
+    to rule_fallback (score_source='rule_fallback') and the issue stays ready.
+
+    Pre-US1 this marked the issue failed with 0 articles. Post-US1 the
+    summarizer returns a rule-derived SummaryResult so transient LLM outages
+    don't drop articles from the daily issue.
+    """
 
     async def _collector():
         return [
@@ -84,14 +90,26 @@ async def test_all_summarizers_fail_issue_failed(monkeypatch, db_session):
         inject_collector=_collector,
         llm_client=_AlwaysFailClient(),
     )
-    assert issue.status == IssueStatus.FAILED.value
+    assert issue.status == IssueStatus.READY.value
 
-    # Verify no articles persisted.
+    # Both articles persisted with rule_fallback scoring.
     from app.models.article import ArticleORM
+    from app.models.article_score import ArticleScoreORM
 
     factory = get_session_factory()
     async with factory() as s:
+        # Use selectinload to avoid lazy-loading greenlet issue.
+        from sqlalchemy.orm import selectinload
         rows = (
-            await s.execute(select(ArticleORM).where(ArticleORM.issue_id == issue.id))
+            await s.execute(
+                select(ArticleORM)
+                .where(ArticleORM.issue_id == issue.id)
+                .options(selectinload(ArticleORM.score))
+            )
         ).scalars().all()
-        assert len(rows) == 0
+        assert len(rows) == 2
+        for row in rows:
+            assert row.score is not None
+            assert row.score.score_source == "rule_fallback"
+            assert row.score.composite_score is not None
+            assert 0 <= row.score.composite_score <= 100

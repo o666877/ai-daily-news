@@ -24,7 +24,11 @@ from app import models  # noqa: F401, E402  (register ORM on Base.metadata)
 
 config = context.config
 
-if config.config_file_name is not None:
+# Honor configure_logger=False (set by tests) so fileConfig() doesn't reset
+# global logging — disable_existing_loggers would break later caplog capture.
+if config.config_file_name is not None and config.attributes.get(
+    "configure_logger", True
+):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata

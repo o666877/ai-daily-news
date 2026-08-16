@@ -217,15 +217,15 @@
 
 **Purpose**: 跨故事一致性、可维护性与开源准备
 
-- [ ] T087 [P] Write `README.md` at repo root: local startup steps, all `AIDAILY_*` env vars table, 9 API call examples (curl), RSSHub deploy snippet, log location, dev scripts
-- [ ] T088 [P] Add `docker-compose.yml` at repo root: service `backend` (build `./backend`) + service `rsshub` (image `diygod/rsshub:latest`, port 1200) + volume for SQLite; one-command `docker compose up`
-- [ ] T089 [P] Add `backend/Dockerfile` (Python 3.11-slim, install deps, copy app, run uvicorn)
-- [ ] T090 [P] Configure GitHub Actions CI in `.github/workflows/ci.yml`: matrix Python 3.11 on ubuntu-latest; steps: install deps via uv → ruff check → mypy → pytest --cov --cov-fail-under=80 → playwright install + e2e
-- [ ] T091 [P] Add OpenAPI auto-doc at `GET /docs` (FastAPI default) and `GET /openapi.json` for downstream SDK generation; document all 9 endpoints with response examples
-- [ ] T092 [P] Add performance benchmark tests in `backend/tests/performance/test_perf_budgets.py`: locust or pytest-benchmark; assert `GET /daily/today` P95 ≤ 500ms, `GET /articles` P95 ≤ 300ms, `GET /articles/{id}` P95 ≤ 200ms (per Constitution IV)
-- [ ] T093 [P] Add log rotation + structured JSON in `backend/app/infra/logging.py`: `RotatingFileHandler` 10MB × 5 files; include `request_id`/`source`/`issue_id` fields in every log line
-- [ ] T094 [P] Add `CONTRIBUTING.md` + `CHANGELOG.md` at repo root for open-source readiness (dev setup, commit conventions, PR workflow)
-- [ ] T095 Run all `quickstart.md` VS-1 ~ VS-10 + VS-9a + VS-9b scenarios end-to-end; document any remaining gaps in README "Known Limitations" section
+- [x] T087 [P] Write `README.md` at repo root: local startup steps, all `AIDAILY_*` env vars table, 9 API call examples (curl), RSSHub deploy snippet, log location, dev scripts
+- [x] T088 [P] Add `docker-compose.yml` at repo root: service `backend` (build `./backend`) + service `rsshub` (image `diygod/rsshub:latest`, port 1200) + volume for SQLite; one-command `docker compose up`
+- [x] T089 [P] Add `backend/Dockerfile` (Python 3.11-slim, install deps, copy app, run uvicorn)
+- [x] T090 [P] Configure GitHub Actions CI in `.github/workflows/ci.yml`: matrix Python 3.11 on ubuntu-latest; steps: install deps via uv → ruff check → mypy → pytest --cov --cov-fail-under=80 → playwright install + e2e
+- [x] T091 [P] Add OpenAPI auto-doc at `GET /docs` (FastAPI default) and `GET /openapi.json` for downstream SDK generation; document all 9 endpoints with response examples
+- [x] T092 [P] Add performance benchmark tests in `backend/tests/performance/test_perf_budgets.py`: locust or pytest-benchmark; assert `GET /daily/today` P95 ≤ 500ms, `GET /articles` P95 ≤ 300ms, `GET /articles/{id}` P95 ≤ 200ms (per Constitution IV)
+- [x] T093 [P] Add log rotation + structured JSON in `backend/app/infra/logging.py`: `RotatingFileHandler` 10MB × 5 files; include `request_id`/`source`/`issue_id` fields in every log line
+- [x] T094 [P] Add `CONTRIBUTING.md` + `CHANGELOG.md` at repo root for open-source readiness (dev setup, commit conventions, PR workflow)
+- [x] T095 Run all `quickstart.md` VS-1 ~ VS-10 + VS-9a + VS-9b scenarios end-to-end; document any remaining gaps in README "Known Limitations" section
 
 ---
 

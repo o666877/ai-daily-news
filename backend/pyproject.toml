@@ -36,6 +36,7 @@ dev = [
     "pytest==8.2.0",
     "pytest-asyncio==0.23.7",
     "pytest-cov==5.0.0",
+    "pytest-benchmark==4.0.0",
     "respx==0.21.1",
     "ruff==0.4.7",
     "mypy==1.10.0",
@@ -72,4 +73,7 @@ addopts = "--cov=app --cov-report=term-missing --cov-fail-under=80 -q -p no:lang
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "perf: performance budget test (Constitution IV) — opt-in via `pytest -m perf`",
 ]

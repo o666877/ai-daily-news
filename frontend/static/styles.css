@@ -203,6 +203,25 @@ body {
 }
 .btn:hover { opacity: 0.9; }
 
+/* Share modal (T080) */
+.share-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center; z-index: 1100;
+}
+.share-modal {
+  background: #fff; border-radius: 10px; padding: 1.5rem;
+  width: min(440px, 90vw); box-shadow: 0 10px 40px rgba(0,0,0,.2);
+}
+.share-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.share-head h2 { margin: 0; font-size: 1.125rem; }
+.share-title { font-weight: 600; margin: .25rem 0 .75rem; line-height: 1.4; }
+.share-url {
+  background: #f3f4f6; padding: .5rem .75rem; border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, monospace; font-size: .8rem;
+  word-break: break-all; user-select: all;
+}
+.share-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+
 /* Toast */
 .toast {
   position: fixed;

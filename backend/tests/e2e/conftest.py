@@ -69,7 +69,7 @@ def base_url(tmp_path_factory) -> Iterator[str]:
         "    factory = db_module.get_session_factory()\n"
         "    async with factory() as session:\n"
         "        session.add(DailyIssueORM(id='20260812', date='2026-08-12', edition=1, status='ready', generated_at=datetime(2026,8,12,8,0,tzinfo=timezone.utc), filters_applied={'sources':['x','github','reddit','web'],'types':['agent','self_improve','open_source','tools']}))\n"
-        "        session.add(ArticleORM(id='20260812-0001', issue_id='20260812', type='agent', src='reddit', title='Reddit Agent Post', excerpt='Reddit agent excerpt', lede='Reddit lede', summary='Reddit one-liner', body=['Body para 1','Body para 2'], quote=None, points=['Point 1','Point 2'], time='09:00', source_url='https://reddit.com/r/example/1', source_name='reddit.com/r/MachineLearning', reading_minutes=4, published_at='2026-08-12T09:00:00+00:00'))\n"
+        "        session.add(ArticleORM(id='20260812-0001', issue_id='20260812', type='agent', src='reddit', title='Reddit Agent Post', excerpt='Reddit agent excerpt', lede='Reddit lede', summary='Reddit one-liner', body='Body para 1\n\nBody para 2', quote=None, points=['Point 1','Point 2'], time='09:00', source_url='https://reddit.com/r/example/1', source_name='reddit.com/r/MachineLearning', reading_minutes=4, published_at='2026-08-12T09:00:00+00:00'))\n"
         "        await session.commit()\n"
         "    await engine.dispose()\n"
         "asyncio.run(seed())\n"

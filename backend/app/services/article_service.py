@@ -1,12 +1,19 @@
-"""Article list queries for filtering and pagination."""
+"""Article list queries for filtering and pagination.
+
+US1: each item carries compositeScore (int | null). Ordering:
+composite_score DESC, time DESC (legacy rows with NULL composite_score sort last).
+"""
 
 from __future__ import annotations
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.article import ArticleListItem, ArticleORM
+from app.models.article_score import ArticleScoreORM
 from app.models.meta import SourceKey, TypeKey
+from app.services.issue_service import is_must_read
 
 
 async def list_articles(
@@ -15,7 +22,10 @@ async def list_articles(
     page: int,
     page_size: int,
 ) -> tuple[list[ArticleListItem], int, dict[str, str | None]]:
-    """Return filtered article list, total count, and echoed filters."""
+    """Return filtered article list, total count, and echoed filters.
+
+    Ordering: composite_score DESC (NULLS LAST), time DESC, id DESC.
+    """
     conditions = []
     type_value = filters.get("type")
     src_value = filters.get("src")
@@ -31,12 +41,21 @@ async def list_articles(
         select(func.count(ArticleORM.id)).where(*conditions)
     )
     total = int(count_result.scalar_one())
+
+    # Outer join to article_scores so we can order by composite_score.
+    # Use selectinload to fetch score row without N+1.
     rows = await session.execute(
         select(ArticleORM)
+        .outerjoin(ArticleScoreORM, ArticleScoreORM.article_id == ArticleORM.id)
         .where(*conditions)
-        .order_by(ArticleORM.time.desc(), ArticleORM.id.desc())
+        .order_by(
+            ArticleScoreORM.composite_score.desc().nullslast(),
+            ArticleORM.time.desc(),
+            ArticleORM.id.desc(),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
+        .options(selectinload(ArticleORM.score))
     )
     items = [
         ArticleListItem(
@@ -47,6 +66,8 @@ async def list_articles(
             src=SourceKey(row.src),
             time=row.time,
             readingMinutes=row.reading_minutes,
+            compositeScore=row.score.composite_score if row.score else None,
+            mustRead=is_must_read(row.id),
         )
         for row in rows.scalars()
     ]

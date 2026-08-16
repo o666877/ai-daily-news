@@ -1,0 +1,420 @@
+# AI 日报系统 (AI Daily News)
+
+> 一个本地优先的 AI 资讯聚合日报系统。每日自动从 X (Twitter)、GitHub、Reddit、全网 RSS 抓取 AI 领域资讯，经 LLM 摘要后以本地 Web 应用形式呈现，支持双维筛选、偏好配置、分享卡片。
+
+[![CI](https://github.com/your-org/ai-daily-news/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](backend/tests/)
+
+---
+
+## 项目简介
+
+AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 (Asia/Shanghai) 自动生成一期「AI 日报」，包含：
+
+- **今日刊**：当日 4 大来源 + 4 大分类聚合，每篇含 LLM 摘要（导语/正文/引用/要点）
+- **双维筛选**：4 类型 × 4 来源任意组合（Reddit+Agent、X+开源 等）
+- **偏好配置**：自定义开关与推送时间，下一期自动生效
+- **分享卡片**：一键生成可公开的卡片链接
+- **首装自动触发**：第一次启动无需等到次日，5-10 分钟内出首期
+
+### 信息源 & 类型
+
+| Source (`src`) | Type (`type`) |
+|---|---|
+| `x` (X / Twitter via RSSHub) | `agent` (Agent / 智能体) |
+| `github` (GitHub trending + maintainer events) | `self_improve` (持续学习 / 自我进化) |
+| `reddit` (PRAW: MachineLearning, LocalLLaMA, ...) | `open_source` (开源项目) |
+| `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率) |
+
+---
+
+## 快速开始 (本地启动)
+
+### 前置要求
+
+- Python 3.11.9+
+- 操作系统：Windows 11 / macOS 14+ / Ubuntu 22.04+
+- （可选）Docker：用于一键部署 + 自托管 RSSHub
+
+### 步骤 1：克隆 + 准备环境
+
+```bash
+git clone https://github.com/your-org/ai-daily-news.git
+cd ai-daily-news
+
+# 创建虚拟环境
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+```
+
+### 步骤 2：安装后端依赖
+
+```bash
+cd backend/
+pip install -e ".[dev]"
+```
+
+### 步骤 3：配置环境变量
+
+```bash
+cp ../.env.example ../.env
+# 编辑 .env，至少填入 AIDAILY_LLM_API_KEY
+```
+
+最小必填项：
+
+```dotenv
+AIDAILY_LLM_API_KEY=sk-ant-...         # Anthropic 或兼容网关 API Key
+AIDAILY_REDDIT_UA=ai-daily/1.0 by your_username  # Reddit 抓取需要
+```
+
+`AIDAILY_BEARER_TOKEN` 缺失时，后端首次启动会自动生成并打印到 stdout 一次。
+
+### 步骤 4：（可选，仅启用 X 源）启动 RSSHub
+
+```bash
+docker run -d --name rsshub -p 1200:1200 diygod/rsshub:latest
+# .env 中设置 AIDAILY_X_RSSHUB_BASE_URL=http://localhost:1200
+```
+
+未部署 RSSHub 时 X 源静默跳过，其余 3 源正常出刊。
+
+### 步骤 5：初始化数据库
+
+```bash
+cd backend/
+alembic upgrade head
+```
+
+### 步骤 6：启动后端
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+首次启动会自动后台触发初始刊期生成（FR-001b），约 5-10 分钟后 `GET /daily/today` 返回 ready 状态。
+
+### 步骤 7：打开前端
+
+浏览器访问：<http://127.0.0.1:8000/>
+
+> 开发模式（前后端分离）：`cd frontend/ && python -m http.server 3000`
+
+### 一键 Docker 部署
+
+```bash
+docker compose up -d
+# 后端：http://localhost:8000/
+# RSSHub：http://localhost:1200/
+```
+
+详见 [`docker-compose.yml`](docker-compose.yml)。
+
+---
+
+## 环境变量
+
+所有变量前缀 `AIDAILY_`，详见 [`.env.example`](.env.example)。
+
+### LLM（必填）
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `AIDAILY_LLM_API_KEY` | — | Anthropic 兼容 API 密钥（必填） |
+| `AIDAILY_LLM_BASE_URL` | `https://api.anthropic.com` | 可改为 OneAPI/DeepSeek/Moonshot 转发层 |
+| `AIDAILY_LLM_MODEL` | `claude-haiku-4-5-20251001` | Anthropic 协议兼容模型 |
+| `AIDAILY_LLM_DAILY_BUDGET_USD` | `2.00` | 日花费上限，超出抛业务码 `9002` |
+
+### 鉴权（可选）
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `AIDAILY_BEARER_TOKEN` | — | 写接口鉴权 token；缺失则启动时随机生成并打印 stdout 一次 |
+
+### 服务器与调度
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `AIDAILY_HOST` | `127.0.0.1` | 绑定地址 |
+| `AIDAILY_PORT` | `8000` | 监听端口 |
+| `AIDAILY_TZ` | `Asia/Shanghai` | 时区（影响刊期日期判定） |
+| `AIDAILY_DB_PATH` | `./data/aidaily.db` | SQLite 路径（`:memory:` 用于测试） |
+| `AIDAILY_DAILY_PUSH_TIME` | `08:00` | 每日生成时刻（`HH:mm` 24h） |
+
+### 信息源凭据
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `AIDAILY_X_RSSHUB_BASE_URL` | — | RSSHub 实例 URL；为空 → X 源静默跳过 |
+| `AIDAILY_X_ACCOUNTS` | 内置 25 KOL | 逗号分隔的 X 用户名列表 |
+| `AIDAILY_GITHUB_TOKEN` | — | GitHub PAT，提升速率限制（缺失走 trending HTML） |
+| `AIDAILY_REDDIT_UA` | `ai-daily/1.0 by anonymous` | Reddit API user-agent（建议覆盖） |
+
+---
+
+## API 接口
+
+完整契约见 [`specs/001-ai-daily-news/contracts/`](specs/001-ai-daily-news/contracts/)。
+交互式文档（Swagger UI）：<http://127.0.0.1:8000/docs>
+OpenAPI Schema：<http://127.0.0.1:8000/openapi.json>
+
+### 公开接口（无需鉴权）
+
+#### 1. `GET /api/v1/daily/today` — 今日刊概览
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/daily/today" \
+  -H "X-Request-Id: req_$(date +%s)"
+```
+
+返回 `{issue, summary, articles[]}`。状态码：`200 ready` / `404 2002 not-generated` / `409 2003 generating`。
+
+#### 2. `GET /api/v1/articles?type=&src=&page=&pageSize=` — 双维筛选
+
+```bash
+# Reddit + Agent 组合
+curl -s "http://127.0.0.1:8000/api/v1/articles?src=reddit&type=agent&page=1&pageSize=20"
+```
+
+返回 `{items[], page, pageSize, total, appliedFilters}`。非法枚举值 → `400 1002`。
+
+#### 3. `GET /api/v1/articles/{id}` — 条目详情
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/articles/20260812-0003"
+```
+
+返回完整 Article（含 `lede/summary/body/quote/points/sourceUrl/...`）。不存在 → `404 2001`。
+
+#### 4. `GET /api/v1/meta` — 信息源/类型元数据
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/meta"
+```
+
+返回 `{sources[4], types[4]}`。前端 chips 数据源，**不硬编码**。
+
+#### 5. `GET /api/v1/healthz` — 健康检查
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/healthz"
+```
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "pipeline": { "collector": "up", "summarizer": "up" }
+}
+```
+
+### 写接口（需 `Authorization: Bearer <token>`）
+
+> 令牌在 `.env` 中设置 `AIDAILY_BEARER_TOKEN`，或从启动 stdout 复制。
+
+#### 6. `GET /api/v1/settings` — 读取偏好
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/settings" \
+  -H "Authorization: Bearer $AIDAILY_BEARER_TOKEN"
+```
+
+#### 7. `PUT /api/v1/settings` — 保存偏好（下一期生效）
+
+```bash
+curl -s -X PUT "http://127.0.0.1:8000/api/v1/settings" \
+  -H "Authorization: Bearer $AIDAILY_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sources": {"x": true, "github": false, "reddit": true, "web": true},
+    "types": {"agent": true, "self_improve": true, "open_source": false, "tools": true},
+    "dailyPush": {"enabled": true, "time": "08:00"}
+  }' \
+  -D -  # 显示响应头以验证 X-Effective-At
+```
+
+响应头含 `X-Effective-At: 20260813`（明日刊期生效）。校验失败 → `422 1005`。
+
+#### 8. `POST /api/v1/settings/reset` — 恢复默认
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/settings/reset" \
+  -H "Authorization: Bearer $AIDAILY_BEARER_TOKEN" -D -
+```
+
+#### 9. `POST /api/v1/share` — 生成分享卡片
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/share" \
+  -H "Authorization: Bearer $AIDAILY_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"articleId": "20260812-0003"}'
+```
+
+返回 `{shareId, cardUrl, articleTitle}`。`cardUrl` 可在浏览器直接打开（公开页面，无需鉴权）。
+
+### 公开分享页
+
+```bash
+# 浏览器打开 cardUrl 即可
+open "http://127.0.0.1:8000/share/shr_9f2c4a71"
+```
+
+---
+
+## RSSHub 部署
+
+X (Twitter) 源需要自托管 RSSHub 实例（无官方 X API 假设）。
+
+### Docker 一键启动
+
+```bash
+docker run -d --name rsshub -p 1200:1200 diygod/rsshub:latest
+```
+
+### 配置环境变量
+
+```dotenv
+# .env
+AIDAILY_X_RSSHUB_BASE_URL=http://localhost:1200
+AIDAILY_X_ACCOUNTS=karpathy,ylecun,simonw,swyx
+```
+
+### 验证
+
+```bash
+curl -s "http://localhost:1200/twitter/user/karpathy" | head -20
+```
+
+### 禁用 X 源
+
+将 `AIDAILY_X_RSSHUB_BASE_URL` 留空（或不设置），系统启动时静默跳过 X 源，其余 3 源正常出刊。
+
+---
+
+## 日志
+
+| 类型 | 位置 | 格式 |
+|---|---|---|
+| 应用日志 | `backend/logs/aidaily.log` | JSON 每行一条；含 `ts/level/logger/message/request_id` |
+| 滚动策略 | 10 MB × 5 文件 | `RotatingFileHandler` |
+| 控制台 | stdout | 同 JSON 格式 |
+
+每条日志可选字段（按场景填充）：`source` / `issue_id` / `exception_type` / `user` / `module`。
+
+**示例查询**（排查某次失败）：
+
+```bash
+# 按 request_id 串联请求链
+grep '"request_id":"req_abc123"' backend/logs/aidaily.log
+
+# 找出 X 源采集失败
+grep '"source":"x"' backend/logs/aidaily.log | grep ERROR
+
+# 统计今日刊期生成事件
+grep '"issue_id":"20260812"' backend/logs/aidaily.log
+```
+
+---
+
+## 开发脚本
+
+> 所有命令在 `backend/` 目录下运行。
+
+```bash
+# 安装开发依赖（含 pytest, ruff, mypy, respx 等）
+pip install -e ".[dev]"
+
+# 跑全部测试（不含 e2e）+ 80% 覆盖率门槛
+pytest --cov=app --cov-fail-under=80 --ignore=tests/e2e -v
+
+# 跑 e2e（需先 pip install pytest-playwright && playwright install chromium）
+pytest tests/e2e/
+
+# 跑性能基准（标记 @pytest.mark.perf，慢 CI 可跳过）
+pytest tests/performance/ -v
+
+# 静态检查
+ruff check backend/
+mypy backend/app
+
+# 数据库迁移
+alembic upgrade head          # 应用至最新
+alembic revision --autogenerate -m "msg"  # 生成新迁移
+
+# 手动触发一次刊期生成（开发调试用）
+python -m app.pipeline.run_once --date 2026-08-12
+
+# 启动开发服务器（热重载）
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+---
+
+## 项目结构
+
+```
+ai-daily-news/
+├── backend/                    # Python FastAPI 后端
+│   ├── app/
+│   │   ├── api/                # 9 个路由
+│   │   ├── config.py           # pydantic-settings 配置
+│   │   ├── infra/              # db/auth/logging/middleware/ratelimit/...
+│   │   ├── models/             # SQLAlchemy ORM + Pydantic schemas
+│   │   ├── pipeline/           # collector + summarizer + generator
+│   │   ├── services/           # 业务服务层
+│   │   └── main.py             # FastAPI ASGI 入口
+│   ├── migrations/             # Alembic 迁移
+│   ├── tests/                  # unit + integration + e2e + performance
+│   ├── alembic.ini
+│   ├── pyproject.toml
+│   ├── Dockerfile
+│   └── pytest.ini
+├── frontend/                   # 静态前端（无构建步骤）
+│   ├── index.html
+│   └── static/
+│       ├── app.js              # 主 JS（Alpine.js + htmx）
+│       ├── icons/              # SVG 图标
+│       └── vendor/             # Alpine 3.14.1 + htmx 1.19.5
+├── specs/001-ai-daily-news/    # 设计文档（contracts/plan/research/...）
+├── .github/workflows/ci.yml    # GitHub Actions CI
+├── docker-compose.yml          # 一键部署
+├── .env.example
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+├── LICENSE                     # MIT
+└── README.md
+```
+
+---
+
+## 已知限制
+
+- **X 源需自托管 RSSHub**：v1.x 未集成官方 X API（成本与 OAuth 复杂度考量）；未部署时 X 源静默跳过，其余 3 源正常。
+- **LLM 依赖单一 provider**：当前仅支持 Anthropic 协议；OpenAI 协议支持规划在 v1.1。
+- **本地 SQLite**：单机部署；多副本水平扩展需替换为 PostgreSQL（v2 规划）。
+- **无用户体系**：单用户 Bearer token；多租户在 v2 路线图。
+- **无 OAuth/SSO**：分享卡片为公开链接，无 TTL 过期（v2 可加）。
+- **首屏渲染未做 SSR**：纯客户端 Alpine.js，SEO 不友好（设计取舍，PC 本地应用场景优先）。
+- **E2E 测试默认不在 CI 主路径**：依赖 Playwright + Chromium 下载，标记在 `tests/e2e/`，可单独触发（详见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
+- **首装自动生成需 5-10 分钟**：取决于 LLM 响应速度与各源速率限制。
+- **`/daily/today` 在 08:00 之前访问**：返回 `404 2002`，前端展示「正在翻今天的墙头」加载态，等到 08:00 触发后转 ready。
+
+---
+
+## 贡献
+
+欢迎 Issue / PR。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（commit 约定、PR 流程、main 分支保护建议）。
+
+变更日志见 [CHANGELOG.md](CHANGELOG.md)（Keep a Changelog 格式）。
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 AI Daily News Contributors

@@ -1,140 +1,202 @@
-"""GitHub collector (T035).
+"""GitHub collector via `gh` CLI (official GitHub CLI with auth).
 
-- Primary: REST v3 `/search/repositories?q=...&sort=stars` for trending AI repos
-  created in last 7 days.
-- Auth via AIDAILY_GITHUB_TOKEN (raises quota usage; if empty, trending HTML fallback).
-- Returns list[RawItem].
+Strategy: run 2-3 complementary `gh search repos --json ...` queries via
+`asyncio.create_subprocess_exec`, aggregate, dedup by sourceUrl, cap at 30.
+
+Requirements:
+- `gh` binary on PATH (verified via shutil.which).
+- `gh auth status` reports logged-in (best-effort check; failure logs a warning
+  but we still try — the per-query call will surface auth errors).
+
+If `gh` is absent or not logged in, return [] and log one warning.
+Per-query timeout 30s. Non-zero exit -> log + skip query.
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import shutil
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
-import httpx
-
-from app.config import get_settings
 from app.models.article import RawItem
 from app.models.meta import SourceKey
 
 logger = logging.getLogger("aidaily.collector.github")
 
-GITHUB_API = "https://api.github.com"
-SEARCH_QUERY_TEMPLATE = "created:{since}..{until} topic:ai stars:>50"
+# Total cap to avoid hammering the LLM summarizer downstream.
+MAX_ITEMS = 30
+# Per-query subprocess timeout (seconds).
+PER_QUERY_TIMEOUT = 30.0
+# Per-query result limit passed to `gh search repos -L`.
+PER_QUERY_LIMIT = 15
+# rawText length cap (chars) — keeps summarizer input bounded.
+RAW_TEXT_MAX = 2000
+
+# JSON fields we ask gh to emit. Keep field names verbatim per `gh search repos --help`.
+JSON_FIELDS: tuple[str, ...] = (
+    "fullName",
+    "description",
+    "url",
+    "stargazersCount",
+    "createdAt",
+    "updatedAt",
+    "language",
+)
 
 
-async def collect_github(client: httpx.AsyncClient | None = None) -> list[RawItem]:
-    """Fetch trending AI repos from GitHub. Returns RawItem list (possibly empty)."""
-    settings = get_settings()
-    if settings.github_token:
-        try:
-            return await _collect_via_api(settings.github_token, client)
-        except Exception as exc:
-            logger.warning(
-                "github_api_failed",
-                extra={"source": SourceKey.GITHUB.value, "exception_type": type(exc).__name__},
-            )
-    # Fallback: scrape github.com/trending (best-effort, ToS-friendly public page).
+def _recent_date(days: int) -> str:
+    """ISO date YYYY-MM-DD for `days` ago in UTC."""
+    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+
+
+def _build_queries(since_recent: str, since_updated: str) -> list[list[str]]:
+    """Construct 3 complementary `gh search repos` argv lists.
+
+    Q1: New this week, Python, llm topic — surfaces fast-growing new repos.
+    Q2: New this week, ai-agents topic — agent ecosystem, any language.
+    Q3: Recently updated, Python, artificial-intelligence topic — active mature repos.
+    """
+    base = ["gh", "search", "repos"]
+    json_arg = ",".join(JSON_FIELDS)
+    common = ["--json", json_arg, "--sort", "stars", "--order", "desc", "-L", str(PER_QUERY_LIMIT)]
+    return [
+        base + ["--language", "python", "--topic", "llm", "--created", f">{since_recent}", *common],
+        base + ["--topic", "ai-agents", "--created", f">{since_recent}", *common],
+        base + ["--language", "python", "--topic", "artificial-intelligence", "--updated", f">{since_updated}", *common],
+    ]
+
+
+async def _run_gh_query(argv: list[str]) -> list[dict[str, Any]]:
+    """Run one `gh search repos` subprocess; return parsed JSON list (possibly empty).
+
+    Logs and returns [] on non-zero exit or timeout.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        *argv,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
     try:
-        return await _collect_via_trending(client)
-    except Exception as exc:
+        stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=PER_QUERY_TIMEOUT)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
         logger.warning(
-            "github_trending_failed",
-            extra={"source": SourceKey.GITHUB.value, "exception_type": type(exc).__name__},
+            "github_gh_query_timeout",
+            extra={"query": " ".join(argv), "timeout_s": PER_QUERY_TIMEOUT},
         )
         return []
 
-
-async def _collect_via_api(
-    token: str, client: httpx.AsyncClient | None
-) -> list[RawItem]:
-    now = datetime.now(timezone.utc)
-    since = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-    until = now.strftime("%Y-%m-%d")
-    query = SEARCH_QUERY_TEMPLATE.format(since=since, until=until)
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "aidaily/1.0",
-    }
-    own_client = client or httpx.AsyncClient(timeout=20.0)
-    try:
-        resp = await own_client.get(
-            f"{GITHUB_API}/search/repositories",
-            params={"q": query, "sort": "stars", "order": "desc", "per_page": 15},
-            headers=headers,
+    stdout = stdout_b.decode("utf-8", errors="replace") if stdout_b else ""
+    if proc.returncode != 0:
+        stderr = stderr_b.decode("utf-8", errors="replace") if stderr_b else ""
+        logger.warning(
+            "github_gh_query_failed",
+            extra={
+                "query": " ".join(argv),
+                "returncode": proc.returncode,
+                "stderr": stderr.strip()[:300],
+            },
         )
-        resp.raise_for_status()
-        data = resp.json()
-    finally:
-        if client is None:
-            await own_client.aclose()
-    items: list[RawItem] = []
-    for repo in data.get("items", []):
-        full = repo.get("full_name", "")
-        url = repo.get("html_url", "")
-        if not url:
-            continue
-        desc = repo.get("description") or ""
-        stars = repo.get("stargazers_count", 0)
-        items.append(
-            RawItem(
-                sourceKey=SourceKey.GITHUB,
-                sourceName="github.com",
-                sourceUrl=url,
-                title=full,
-                rawText=f"{desc}\n\nStars: {stars}\nTopics: {', '.join(repo.get('topics', []) or [])}".strip(),
-                publishedAt=now.isoformat(),
-                suggestedType=None,
-                extra={"stars": stars},
-            )
-        )
-    return items
-
-
-async def _collect_via_trending(client: httpx.AsyncClient | None) -> list[RawItem]:
-    """Fallback: scrape github.com/trending (zero auth)."""
-    try:
-        from selectolax.parser import HTMLParser
-    except ImportError:  # pragma: no cover
         return []
-    own_client = client or httpx.AsyncClient(timeout=20.0)
+
     try:
-        resp = await own_client.get(
-            "https://github.com/trending?since=weekly",
-            headers={"User-Agent": "aidaily/1.0"},
+        parsed = json.loads(stdout) if stdout.strip() else []
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "github_gh_query_bad_json",
+            extra={"query": " ".join(argv), "error": str(exc)},
         )
-        resp.raise_for_status()
-        tree = HTMLParser(resp.text)
-    finally:
-        if client is None:
-            await own_client.aclose()
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return parsed
+
+
+def _build_raw_item(repo: dict[str, Any]) -> RawItem | None:
+    """Map one gh JSON repo dict to a RawItem. Return None if missing url/fullName."""
+    full = (repo.get("fullName") or "").strip()
+    url = (repo.get("url") or "").strip()
+    if not full or not url:
+        return None
+
+    description = (repo.get("description") or "").strip()
+    language = (repo.get("language") or "").strip() or "unknown"
+    stars = int(repo.get("stargazersCount") or 0)
+    created_at = repo.get("createdAt") or ""
+
+    raw_text = description
+    if len(raw_text) > RAW_TEXT_MAX:
+        raw_text = raw_text[:RAW_TEXT_MAX]
+
+    title = f"{full}: {description}" if description else full
+
+    return RawItem(
+        sourceKey=SourceKey.GITHUB,
+        sourceName="github.com",
+        sourceUrl=url,
+        title=title,
+        rawText=raw_text,
+        publishedAt=created_at,
+        suggestedType=None,
+        extra={
+            "stars": stars,
+            "language": language,
+            "topics": [],  # gh search repos does not emit topics in JSON
+            "updatedAt": repo.get("updatedAt"),
+        },
+    )
+
+
+def _dedup_by_url(items: list[RawItem]) -> list[RawItem]:
+    """Remove duplicates by URL (case-insensitive, trailing slash normalized)."""
+    seen: set[str] = set()
+    out: list[RawItem] = []
+    for item in items:
+        key = item.sourceUrl.strip().lower().rstrip("/")
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+async def _check_gh_available() -> bool:
+    """Return True iff `gh` is on PATH. (Best-effort; auth check is delegated to queries.)"""
+    return shutil.which("gh") is not None
+
+
+async def collect_github() -> list[RawItem]:
+    """Fetch trending AI repos via `gh` CLI. Returns RawItem list (possibly empty).
+
+    Strategy: 3 complementary `gh search repos` queries aggregated + deduped + capped.
+    Failures (gh missing, query error, timeout) -> log + skip; never raise.
+    """
+    if not await _check_gh_available():
+        logger.warning("github_gh_missing", extra={"source": SourceKey.GITHUB.value})
+        return []
+
+    since_recent = _recent_date(days=7)
+    since_updated = _recent_date(days=3)
+    queries = _build_queries(since_recent, since_updated)
+
+    # Run all queries concurrently; each handles its own errors and returns [].
+    query_results = await asyncio.gather(*[_run_gh_query(q) for q in queries])
 
     items: list[RawItem] = []
-    now_iso = datetime.now(timezone.utc).isoformat()
-    for article in tree.css("article.Box-row"):
-        h2 = article.css_first("h2 a")
-        if h2 is None:
-            continue
-        href = h2.attributes.get("href", "").strip()
-        if not href:
-            continue
-        full = href.lstrip("/")
-        url = f"https://github.com{href}"
-        desc_node = article.css_first("p")
-        desc = desc_node.text(strip=True) if desc_node else ""
-        items.append(
-            RawItem(
-                sourceKey=SourceKey.GITHUB,
-                sourceName="github.com",
-                sourceUrl=url,
-                title=full,
-                rawText=desc,
-                publishedAt=now_iso,
-                extra={},
-            )
-        )
-    return items
+    for repo_list in query_results:
+        for repo in repo_list:
+            item = _build_raw_item(repo)
+            if item is not None:
+                items.append(item)
+
+    deduped = _dedup_by_url(items)
+    if len(deduped) > MAX_ITEMS:
+        deduped = deduped[:MAX_ITEMS]
+    return deduped
 
 
 __all__ = ["collect_github"]

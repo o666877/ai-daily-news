@@ -10,14 +10,17 @@ Pydantic:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infra.db import Base
 from app.models._base import CamelModel
 from app.models.meta import SourceKey, TypeKey
+
+if TYPE_CHECKING:
+    from app.models.article_score import ArticleScoreORM
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +43,7 @@ class ArticleORM(Base):
     excerpt: Mapped[str] = mapped_column(String(200))
     lede: Mapped[str] = mapped_column(Text)
     summary: Mapped[str] = mapped_column(String(150))
-    body: Mapped[list[str]] = mapped_column(JSON)
+    body: Mapped[str] = mapped_column(Text)
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
     points: Mapped[list[str]] = mapped_column(JSON)
     time: Mapped[str] = mapped_column(String(5))  # HH:mm
@@ -52,6 +55,13 @@ class ArticleORM(Base):
         DateTime, default=datetime.utcnow
     )
 
+    score: Mapped["ArticleScoreORM | None"] = relationship(
+        "ArticleScoreORM",
+        back_populates="article",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -59,7 +69,11 @@ class ArticleORM(Base):
 
 
 class ArticleListItem(CamelModel):
-    """7-field list shape for daily/today + articles list responses."""
+    """7-field list shape for daily/today + articles list responses.
+
+    US1: compositeScore (int | null) added — null for legacy rows lacking a
+    score row.
+    """
 
     id: str
     title: str
@@ -68,20 +82,32 @@ class ArticleListItem(CamelModel):
     src: SourceKey
     time: str
     readingMinutes: int
+    compositeScore: int | None = None
+    # True for the issue's editorial top-3 (article id suffix ≤ 0003 at
+    # generation time). Stable across filter views — clients must not
+    # recompute it from list position.
+    mustRead: bool = False
 
 
 class Article(ArticleListItem):
-    """Full Article: 16 fields for detail endpoint."""
+    """Full Article: 16 fields for detail endpoint.
+
+    US1: score sub-object added (compositeScore + 4 dimensionScores +
+    authorityTier + scoreSource + topicId + opinionFingerprint).
+    """
 
     issueId: str
     lede: str
     summary: str
-    body: list[str]
+    # Markdown string (specs/002): paragraphs, bold, inline code, links,
+    # bullet lists, quotes. Rendered client-side with a sanitized pipeline.
+    body: str
     quote: str | None = None
     points: list[str]
     sourceUrl: str
     sourceName: str
     publishedAt: str
+    score: dict[str, Any] | None = None
 
 
 class RawItem(CamelModel):

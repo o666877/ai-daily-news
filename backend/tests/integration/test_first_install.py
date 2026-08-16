@@ -43,12 +43,13 @@ async def test_first_install_generates_issue(test_engine, db_session, patch_llm_
     assert issue.status == "ready"
     assert issue.id == target_id
 
-    # Verify article was persisted in DB.
+    # Verify article was persisted in DB with the LLM-generated Chinese title
+    # (not the raw source title "Test Repo").
     from app.models.article import ArticleORM
 
     factory = get_session_factory()
     async with factory() as s:
         rows = (await s.execute(select(ArticleORM).where(ArticleORM.issue_id == target_id))).scalars().all()
         assert len(rows) == 1
-        assert rows[0].title == "Test Repo"
+        assert rows[0].title == "测试用中文标题"
         assert rows[0].type == "agent"

@@ -23,7 +23,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="AIDAILY_",
-        env_file=".env",
+        env_file=(
+            Path(__file__).resolve().parent.parent / ".env",
+            Path(__file__).resolve().parent.parent.parent / ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -80,8 +83,12 @@ class Settings(BaseSettings):
 
     # ----- Reddit -----
     reddit_ua: str = Field(
-        default="ai-daily/1.0 by anonymous",
-        description="Reddit API user-agent",
+        default="aidaily/1.0 (research; +https://github.com/aidaily/aidaily)",
+        description=(
+            "Reddit API user-agent. Reddit 403s the default httpx/python "
+            "UA, so this MUST be a descriptive non-default string. Reddit's "
+            "guidelines recommend the form `app/version (purpose; +contact)`."
+        ),
     )
 
     @field_validator("bearer_token")
