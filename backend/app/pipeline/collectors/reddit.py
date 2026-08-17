@@ -1,27 +1,23 @@
-"""Reddit collector — public Atom `.rss` feed with custom User-Agent.
+"""Reddit collector — opencli browser bridge first, Atom `.rss` fallback.
 
-Previous implementations:
-1. (early) Anonymous `.json` HTTP fetches.
-2. (T036) OpenCLI bridge to a logged-in Chrome session.
+Channel history:
+1. (early) Anonymous `.json` HTTP fetches — 403 for all non-logged-in
+   clients on datacenter / many ISP IPs.
+2. (T036) OpenCLI bridge — abandoned when the browser extension was not
+   always connected (no fallback meant a dead source).
+3. Anonymous Atom feed `top.rss` — still works, but carries no score /
+   comment metadata.
+4. (current) opencli browser bridge as primary channel (logged-in Chrome
+   session passes the IP blocks and exposes score / num_comments /
+   selftext), with the Atom feed retained as automatic fallback when the
+   bridge is unavailable or every sub fails.
 
-Both broke: Reddit now 403s the `www.reddit.com/*.json` endpoint for all
-non-logged-in clients on datacenter / many ISP IPs regardless of
-User-Agent, and OpenCLI depends on a browser extension that is not always
-connected. The endpoint that still serves anonymous clients is the
-**Atom feed** at `https://www.reddit.com/r/<sub>/top/.rss?t=week`, which
-works with any non-default User-Agent and returns standard Atom XML.
+Dispatch lives in `collect_reddit()`: probe opencli (PATH + env kill
+switch) → bridge; probe failure or all-subs-empty → Atom path
+(`_collect_via_atom`). Every decision logs a `channel=` field so the
+serving channel of a run is greppable.
 
-Design:
-- Curated list of AI-relevant subreddits at module top.
-- Per-subreddit: fetch `https://www.reddit.com/r/<sub>/top/.rss?t=week`
-  via httpx.AsyncClient using a configurable User-Agent, parse with
-  `feedparser` (already a project dependency).
-- 72h freshness window aligned with the web collector.
-- Per-subreddit failures (HTTP 4xx/5xx, parse errors, timeouts) are
-  logged and skipped (FR-007a); other subs still return data.
-- All subs fetched concurrently via asyncio.gather(return_exceptions=True).
-- The Atom feed does not expose score / num_comments; those fields are
-  omitted from `extra` (the classifier does not depend on them).
+Kill switch: AIDAILY_REDDIT_DISABLE_OPENCLI=1 skips the probe entirely.
 
 Public surface preserved: `async def collect_reddit() -> list[RawItem]`.
 """
@@ -40,6 +36,7 @@ import httpx
 from app.config import get_settings
 from app.models.article import RawItem
 from app.models.meta import SourceKey
+from app.pipeline.collectors import reddit_opencli
 
 logger = logging.getLogger("aidaily.collector.reddit")
 
@@ -79,6 +76,45 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 
 async def collect_reddit() -> list[RawItem]:
+    """Channel dispatch: opencli browser bridge first, Atom feed fallback.
+
+    Order:
+    1. opencli unavailable (no binary / kill switch) → Atom.
+    2. Bridge returns items → done (Atom untouched).
+    3. Bridge returns nothing (all subs failed or everything filtered) →
+       Atom. The bridge is a volatile dependency (browser session); the
+       Atom endpoint is the proven fallback — T036's lesson is that the
+       bridge must never be a single point of failure.
+    """
+    if reddit_opencli.opencli_available():
+        items = await reddit_opencli.collect_via_opencli(SUBREDDITS)
+        if items:
+            logger.info(
+                "reddit_channel_selected",
+                extra={
+                    "source": SourceKey.REDDIT.value,
+                    "channel": "opencli",
+                    "count": len(items),
+                },
+            )
+            return items
+        logger.warning(
+            "reddit_bridge_empty_falling_back",
+            extra={"source": SourceKey.REDDIT.value, "channel": "opencli"},
+        )
+    else:
+        logger.info(
+            "reddit_channel_selected",
+            extra={
+                "source": SourceKey.REDDIT.value,
+                "channel": "atom",
+                "reason": "opencli_unavailable",
+            },
+        )
+    return await _collect_via_atom()
+
+
+async def _collect_via_atom() -> list[RawItem]:
     """Fetch top-of-week posts for each configured subreddit via the public
     Atom `.rss` feed. Returns an empty list if all subs fail; per-sub
     failures are logged and skipped (FR-007a).

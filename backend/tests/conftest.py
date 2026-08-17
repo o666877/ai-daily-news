@@ -38,6 +38,11 @@ def _isolated_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("AIDAILY_DAILY_PUSH_TIME", "08:00")
     # X collector: zero retry backoff so failure-path tests stay fast.
     monkeypatch.setenv("AIDAILY_X_RETRY_BACKOFF_S", "0")
+    # Reddit collector: kill the opencli bridge for every test — dev machines
+    # have opencli installed, and an accidental live probe would spawn real
+    # browser-bridge subprocesses (slow, flaky, network-dependent). Tests
+    # that exercise the bridge mock reddit_opencli functions directly.
+    monkeypatch.setenv("AIDAILY_REDDIT_DISABLE_OPENCLI", "1")
     reset_settings_cache()
     # Reset DB engine cache so new settings apply.
     db_module._engine = None
