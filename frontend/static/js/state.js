@@ -1,0 +1,58 @@
+/* 全局状态与领域常量（specs/004 cand 4：自 index.html 内联 script 拆出）。 */
+
+var TYPE_TO_BACKEND = { "self-improve": "self_improve", "open-source": "open_source" };
+var TYPE_FROM_BACKEND = { "self_improve": "self-improve", "open_source": "open-source" };
+
+var SOURCES = {
+  x:      { name: "X (Twitter)",  short: "X",      icon: "x" },
+  github: { name: "GitHub",       short: "GitHub", icon: "github" },
+  reddit: { name: "Reddit",       short: "Reddit", icon: "reddit" },
+  web:    { name: "全网聚合",      short: "全网",    icon: "globe" }
+};
+var TYPE_NAMES = {
+  "agent": "Agent / 智能体",
+  "self-improve": "持续学习 / 自我进化",
+  "open-source": "开源项目",
+  "tools": "工具与效率"
+};
+
+/* 阅读密度档位 (T042) */
+var STYLE_FIELDS = {
+  concise: {
+    list: ['title', 'sourceName', 'compositeScore'],
+    detail: ['title', 'summary', 'sourceUrl']
+  },
+  standard: {
+    list: ['title', 'excerpt', 'type', 'src', 'time', 'readingMinutes', 'compositeScore'],
+    detail: ['title', 'excerpt', 'lede', 'body', 'points', 'sourceUrl', 'readingMinutes']
+  },
+  detailed: {
+    list: ['title', 'excerpt', 'type', 'src', 'time', 'readingMinutes', 'compositeScore', 'dimensionScores'],
+    detail: ['title', 'excerpt', 'lede', 'body', 'points', 'quote', 'sourceUrl', 'readingMinutes', 'dimensionScores', 'authorityTier']
+  }
+};
+
+var state = {
+  filters: { type: "all", src: "all" },
+  toggles: { x: true, github: true, reddit: true, web: true,
+              agent: true, "self-improve": true, "open-source": true, tools: true, dailyPush: true },
+  selectedId: null,
+  currentIssue: null,
+  articles: [],
+  byId: {},
+  issueId: null,
+  styleMode: "standard",
+  currentStyle: null
+};
+
+function getFields(styleMode, view) {
+  return (STYLE_FIELDS[styleMode] && STYLE_FIELDS[styleMode][view]) || STYLE_FIELDS.standard[view];
+}
+function activeStyleMode() { return state.currentStyle || state.styleMode || 'standard'; }
+function typeToBackend(k) { return TYPE_TO_BACKEND[k] || k; }
+function typeFromBackend(k) { return TYPE_FROM_BACKEND[k] || k; }
+
+export {
+  SOURCES, TYPE_NAMES, state, getFields, activeStyleMode,
+  typeToBackend, typeFromBackend
+};
