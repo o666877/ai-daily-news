@@ -20,15 +20,19 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.infra.db import get_session_factory
 from app.infra.errors import IssueGeneratingError
-from app.models.article import ArticleORM, RawItem
+from app.models.article import RawItem
 from app.models.daily_issue import DailyIssueORM, IssueStatus
 from app.models.meta import SourceKey, TypeKey
 from app.pipeline import summarizer
 from app.pipeline.collector import collect_all
 from app.pipeline.dedup import dedup_candidates, truncate_diverse
+from app.pipeline.issue_repository import (
+    effective_type,
+    finalize_issue,
+    persist_article,
+)
 
 logger = logging.getLogger("aidaily.generator")
 
@@ -38,9 +42,6 @@ logger = logging.getLogger("aidaily.generator")
 # score a genuinely useful community item earns (~52) while absorbing the
 # ±5 LLM scoring variance around junk (~41).
 ADMISSION_FLOOR = 45
-
-# Editorial top-N picks persisted as articles.is_must_read (specs/004 cand 1).
-MUST_READ_TOP_N = 3
 
 
 def _issue_id(date: datetime) -> str:
@@ -108,26 +109,6 @@ async def _insert_generating_issue(
     return orm
 
 
-def _effective_type(raw: RawItem, summary_fields: Any) -> tuple[str, str]:
-    """Return (effective_type, basis) for a (raw, summary_fields) pair.
-
-    effective_type is what will be persisted to articles.type:
-    - LLM-classified type when valid ('llm')
-    - Otherwise rule-derived suggestedType, or TOOLS as last resort ('rule')
-
-    Used both by _persist_article and by the settings filter so they agree.
-    """
-    rule_type = (
-        raw.suggestedType.value if raw.suggestedType else TypeKey.TOOLS.value
-    )
-    llm_type_raw = getattr(summary_fields, "llm_type", None)
-    if isinstance(llm_type_raw, str) and llm_type_raw in {
-        t.value for t in TypeKey
-    }:
-        return llm_type_raw, "llm"
-    return rule_type, "rule"
-
-
 def _filter_by_settings(
     candidates: list[tuple[RawItem, Any]],
     sources_allowed: list[str],
@@ -156,7 +137,7 @@ def _filter_by_settings(
         if raw.sourceKey.value not in src_allow:
             dropped_by_source += 1
             continue
-        eff_type, _ = _effective_type(raw, summary_fields)
+        eff_type, _ = effective_type(raw, summary_fields)
         if eff_type not in type_allow:
             dropped_by_type += 1
             continue
@@ -175,107 +156,6 @@ def _filter_by_settings(
             },
         )
     return kept
-
-
-async def _persist_article(
-    session: AsyncSession,
-    issue_id: str,
-    index: int,
-    raw: RawItem,
-    summary_fields: Any,
-) -> ArticleORM:
-    article_id = f"{issue_id}-{index:04d}"
-    # Compute time HH:mm from raw.publishedAt (UTC now fallback).
-    time_label = _extract_time_label(raw.publishedAt)
-    reading_minutes = max(1, len(raw.rawText) // 800)
-    # Prefer the LLM-generated Chinese title; fall back to raw title only if LLM failed.
-    llm_title = getattr(summary_fields, "title", "") or ""
-    article_title = (llm_title or raw.title)[:200]
-    # Type resolution via shared helper (kept in sync with _filter_by_settings).
-    article_type, basis = _effective_type(raw, summary_fields)
-    if basis == "llm":
-        rule_type = (
-            raw.suggestedType.value if raw.suggestedType else TypeKey.TOOLS.value
-        )
-        if article_type != rule_type:
-            logger.info(
-                "type_overridden_by_llm",
-                extra={
-                    "article_id": article_id,
-                    "llm_type": article_type,
-                    "rule_type": rule_type,
-                },
-            )
-    orm = ArticleORM(
-        id=article_id,
-        issue_id=issue_id,
-        type=article_type,
-        src=raw.sourceKey.value,
-        title=article_title,
-        excerpt=(summary_fields.summary or raw.title)[:200],
-        lede=summary_fields.lede or summary_fields.summary or raw.title,
-        summary=summary_fields.summary[:150],
-        body=summary_fields.body or raw.title,
-        quote=summary_fields.quote,
-        points=summary_fields.points or [raw.title],
-        time=time_label,
-        source_url=raw.sourceUrl,
-        source_name=raw.sourceName[:200],
-        reading_minutes=reading_minutes,
-        published_at=raw.publishedAt,
-        is_must_read=index <= MUST_READ_TOP_N,
-    )
-    session.add(orm)
-
-    # US1 T019: persist ArticleScoreORM (1:1 with article).
-    score_orm = _build_score_orm(article_id, summary_fields)
-    if score_orm is not None:
-        session.add(score_orm)
-
-    return orm
-
-
-def _build_score_orm(article_id: str, summary_fields: Any):
-    """Build ArticleScoreORM from summary_fields. Returns None if scoring data missing.
-
-    Defensive: any missing composite/score_source aborts the row creation
-    (older code paths that don't fill these fields skip scoring).
-    """
-    from app.models.article_score import ArticleScoreORM
-
-    composite = getattr(summary_fields, "composite_score", None)
-    dims = getattr(summary_fields, "dimension_scores", None) or {}
-    tier = getattr(summary_fields, "authority_tier", None)
-    source = getattr(summary_fields, "score_source", None) or "llm"
-    topic = getattr(summary_fields, "topic_id", None)
-    opinion = getattr(summary_fields, "opinion_fingerprint", None)
-
-    if composite is None or tier is None:
-        return None
-
-    return ArticleScoreORM(
-        article_id=article_id,
-        composite_score=int(composite),
-        dim_authority=int(dims.get("authority", 50)),
-        dim_depth=int(dims.get("depth", 50)),
-        dim_timeliness=int(dims.get("timeliness", 50)),
-        dim_expression=int(dims.get("expression", 50)),
-        dim_engagement=int(dims.get("engagement", 50)),
-        authority_tier=tier,
-        topic_id=topic,
-        opinion_fingerprint=opinion,
-        score_source=source,
-        computed_at=datetime.utcnow(),
-    )
-
-
-def _extract_time_label(published_at: str) -> str:
-    """Extract HH:mm from ISO timestamp; fall back to current UTC time."""
-    try:
-        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
-        return dt.strftime("%H:%M")
-    except Exception:
-        return datetime.now(timezone.utc).strftime("%H:%M")
 
 
 async def generate_issue(
@@ -386,7 +266,7 @@ async def generate_issue(
             candidates, daily_count
         )
         for idx, (raw, summary_fields) in enumerate(selected, start=1):
-            await _persist_article(session, issue_id, idx, raw, summary_fields)
+            await persist_article(session, issue_id, idx, raw, summary_fields)
 
         await session.commit()
 
@@ -404,10 +284,7 @@ async def generate_issue(
                 },
             )
         all_failed = bool(raw_items) and not candidates
-        issue_orm.status = (
-            IssueStatus.FAILED.value if all_failed else IssueStatus.READY.value
-        )
-        issue_orm.generated_at = datetime.utcnow()
+        finalize_issue(issue_orm, failed=all_failed)
         await session.commit()
         return issue_orm
 
@@ -427,7 +304,7 @@ def _select_for_issue(
     # Decorate each candidate with the dedup keys + a stable idx.
     items: list[dict] = []
     for idx, (raw, summary_fields) in enumerate(candidates):
-        effective_type, _ = _effective_type(raw, summary_fields)
+        eff_type_value, _ = effective_type(raw, summary_fields)
         items.append(
             {
                 "idx": idx,
@@ -439,7 +316,7 @@ def _select_for_issue(
                 "opinionFingerprint": getattr(
                     summary_fields, "opinion_fingerprint", None
                 ),
-                "type": effective_type,
+                "type": eff_type_value,
             }
         )
     deduped = dedup_candidates(items)
