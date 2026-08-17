@@ -172,9 +172,10 @@ function applyReaderStyleSwitch(mode) {
   if (state.selectedId) {
     var a = state.articles.filter(function (x) { return x.id === state.selectedId; })[0]
       || state.byId[state.selectedId];
-    // 列表项不含 body/sourceUrl——只有已拉取过的详情对象才能直接重渲染，
-    // 否则必须回源拉详情（否则切换密度后正文会静默变空）。
-    if (a && a.body !== undefined) { renderReader(a); return; }
+    // 列表项不含 body/sourceUrl（后端也可能序列化为 null）——只有
+    // body 非空的详情对象才能直接重渲染，否则必须回源拉详情
+    // （否则切换密度后正文会静默变空）。
+    if (a && a.body) { renderReader(a); return; }
     loadArticleIntoReader(state.selectedId);
   } else {
     renderReaderEmpty();
