@@ -782,6 +782,9 @@ async def test_collect_x_no_cookies_returns_empty(monkeypatch):
 
     import app.pipeline.collectors.x_rsshub as x_module
 
+    # Real backend/.env may carry cookies — this test simulates their absence.
+    monkeypatch.setattr(x_module, "_dotenv_loaded", True)
+
     spawn_called = []
 
     async def boom(*a, **kw):

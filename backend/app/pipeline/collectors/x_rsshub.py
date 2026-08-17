@@ -31,6 +31,7 @@ import os
 import shutil
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.config import get_settings
 from app.models.article import RawItem
@@ -92,6 +93,7 @@ async def collect_x_rsshub() -> list[RawItem]:
     AIDAILY_X_ALLOW_BROWSER_COOKIES is not truthy. Otherwise defers to
     twitter-cli, which falls back to the browser cookie DB.
     """
+    _load_dotenv_into_environ()
     if _should_skip_for_missing_cookies():
         logger.warning(
             "x_twitter_cli_skipped_missing_cookies",
@@ -142,6 +144,32 @@ def _should_skip_for_missing_cookies() -> bool:
 
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
+
+
+_dotenv_loaded = False
+
+
+def _load_dotenv_into_environ() -> None:
+    """Export backend/.env entries into os.environ (once, without overrides).
+
+    pydantic-settings only maps AIDAILY_* fields into Settings — it never
+    touches os.environ, so TWITTER_AUTH_TOKEN / TWITTER_CT0 written in .env
+    would be invisible to this module and to the twitter-cli subprocess it
+    spawns. python-dotenv's setdefault semantics keep real process env
+    winning over .env values.
+    """
+    global _dotenv_loaded
+    if _dotenv_loaded:
+        return
+    _dotenv_loaded = True
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(
+            Path(__file__).resolve().parents[3] / ".env", override=False
+        )
+    except ImportError:  # pragma: no cover — dotenv is a hard dep elsewhere
+        logger.warning("x_dotenv_unavailable")
 
 
 async def _fetch_account(account: str) -> list[RawItem]:
