@@ -13,7 +13,6 @@ from sqlalchemy.orm import selectinload
 from app.models.article import ArticleListItem, ArticleORM
 from app.models.article_score import ArticleScoreORM
 from app.models.meta import SourceKey, TypeKey
-from app.services.issue_service import is_must_read
 
 
 async def list_articles(
@@ -67,7 +66,7 @@ async def list_articles(
             time=row.time,
             readingMinutes=row.reading_minutes,
             compositeScore=row.score.composite_score if row.score else None,
-            mustRead=is_must_read(row.id),
+            mustRead=row.is_must_read,
         )
         for row in rows.scalars()
     ]

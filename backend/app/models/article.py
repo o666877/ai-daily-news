@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infra.db import Base
@@ -51,6 +51,12 @@ class ArticleORM(Base):
     source_name: Mapped[str] = mapped_column(String(200))
     reading_minutes: Mapped[int] = mapped_column(Integer)
     published_at: Mapped[str] = mapped_column(String(40))
+    # Editorial top-N pick flag, set once at generation time from the
+    # persistence index (specs/004 candidate 1). The single source of truth
+    # for mustRead on every read path.
+    is_must_read: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
@@ -83,9 +89,9 @@ class ArticleListItem(CamelModel):
     time: str
     readingMinutes: int
     compositeScore: int | None = None
-    # True for the issue's editorial top-3 (article id suffix ≤ 0003 at
-    # generation time). Stable across filter views — clients must not
-    # recompute it from list position.
+    # True for the issue's editorial top-3, persisted at generation time
+    # (articles.is_must_read). Stable across filter views — clients must
+    # not recompute it from list position or id suffix.
     mustRead: bool = False
 
 

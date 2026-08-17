@@ -15,7 +15,6 @@ from app.infra.pagination import PageParams, parse_page_params
 from app.infra.ratelimit import read_limiter
 from app.models import Article, ArticleORM, SourceKey, TypeKey
 from app.services.article_service import list_articles
-from app.services.issue_service import is_must_read
 
 router = APIRouter(prefix="/api/v1", tags=["articles"])
 
@@ -198,7 +197,7 @@ async def get_article_detail(
         sourceName=orm.source_name,
         publishedAt=orm.published_at,
         score=score_obj,
-        mustRead=is_must_read(orm.id),
+        mustRead=orm.is_must_read,
     )
     return article.model_dump(by_alias=True, mode="json")
 

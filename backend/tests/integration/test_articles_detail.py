@@ -72,6 +72,37 @@ async def test_articles_detail_404_not_found(client: AsyncClient):
     assert body["requestId"]
 
 
+@pytest.mark.asyncio
+async def test_articles_detail_must_read_comes_from_column(
+    client: AsyncClient, db_session
+):
+    """mustRead is driven by the persisted column, not the id suffix.
+
+    Specs/004 candidate 1: an article with suffix > 0003 but
+    is_must_read=True must surface mustRead=true (and vice versa) —
+    proving no string parsing remains on the read path.
+    """
+    await _seed_article_with_score(
+        db_session,
+        article_id="20260812-0007",
+        source_name="example.com",
+        tier="community",
+        composite=60,
+    )
+    from sqlalchemy import update
+
+    await db_session.execute(
+        update(ArticleORM)
+        .where(ArticleORM.id == "20260812-0007")
+        .values(is_must_read=True)
+    )
+    await db_session.commit()
+
+    res = await client.get("/api/v1/articles/20260812-0007")
+    assert res.status_code == 200, res.text
+    assert res.json()["mustRead"] is True
+
+
 # ---------- US1 T013: score object ----------
 
 async def _seed_article_with_score(

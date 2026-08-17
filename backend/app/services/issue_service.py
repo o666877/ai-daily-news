@@ -62,19 +62,6 @@ async def _compute_summary(
     return DailyIssueSummary(byType=by_type, bySource=by_source)
 
 
-def is_must_read(article_id: str) -> bool:
-    """True iff the article was persisted in the issue's editorial top-3.
-
-    Article ids are f"{issue_id}-{index:04d}" assigned in display order at
-    generation time, so suffix ≤ 3 marks the must-read picks regardless of
-    how the list is later filtered or re-sorted.
-    """
-    try:
-        return int(article_id.rsplit("-", 1)[-1]) <= 3
-    except (ValueError, IndexError):
-        return False
-
-
 async def get_today(
     session: AsyncSession, now: datetime | None = None
 ) -> tuple[DailyIssue, DailyIssueSummary, list[ArticleListItem]]:
@@ -121,7 +108,7 @@ async def get_today(
             time=a.time,
             readingMinutes=a.reading_minutes,
             compositeScore=a.score.composite_score if a.score else None,
-            mustRead=is_must_read(a.id),
+            mustRead=a.is_must_read,
         )
         for a in items_result.scalars()
     ]

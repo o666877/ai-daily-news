@@ -40,6 +40,9 @@ logger = logging.getLogger("aidaily.generator")
 # ±5 LLM scoring variance around junk (~41).
 ADMISSION_FLOOR = 45
 
+# Editorial top-N picks persisted as articles.is_must_read (specs/004 cand 1).
+MUST_READ_TOP_N = 3
+
 
 def _issue_id(date: datetime) -> str:
     """YYYYMMDD id for a given date (in configured tz)."""
@@ -221,6 +224,7 @@ async def _persist_article(
         source_name=raw.sourceName[:200],
         reading_minutes=reading_minutes,
         published_at=raw.publishedAt,
+        is_must_read=index <= MUST_READ_TOP_N,
     )
     session.add(orm)
 
