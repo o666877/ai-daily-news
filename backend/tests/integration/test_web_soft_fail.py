@@ -5,7 +5,8 @@ Cases:
   → issue.status == 'ready', web_sources_failed warning logged.
 - Every source raises → issue.status == 'failed'.
 
-Note: we monkeypatch `summarize_item` directly because the production
+Note: we monkeypatch `summarize_item` directly (single patch point —
+generator holds a module-qualified reference) because the production
 implementation falls back to a rule-derived SummaryResult on LLM failure,
 which means an LLM-level failure does not raise out of summarize_item.
 Injecting at the `summarize_item` boundary reproduces the realistic
@@ -54,10 +55,9 @@ def _patch_summarize_to_raise_on(monkeypatch, source_filter):
     """Replace summarizer.summarize_item with one that raises SummarizerFailure
     for items whose sourceKey matches `source_filter(source_key)`.
 
-    We patch both `summarizer.summarize_item` and the binding held by the
-    generator module, because generator uses `from app.pipeline.summarizer
-    import summarize_item` which binds the original function to its local
-    namespace at import time.
+    Single patch point: the generator calls summarize_item through the
+    summarizer module (module-qualified reference), so patching the module
+    attribute covers every consumer.
     """
 
     async def _stub_summarize(item, client=None, *, type_hint=None):
@@ -76,9 +76,6 @@ def _patch_summarize_to_raise_on(monkeypatch, source_filter):
         )
 
     monkeypatch.setattr(summarizer, "summarize_item", _stub_summarize)
-    from app.pipeline import generator as generator_module
-
-    monkeypatch.setattr(generator_module, "summarize_item", _stub_summarize)
 
 
 @pytest.mark.asyncio
@@ -160,9 +157,6 @@ async def test_no_items_collected_returns_ready(monkeypatch, db_session):
         return []
 
     monkeypatch.setattr(summarizer, "summarize_item", _stub_summarize_success)
-    from app.pipeline import generator as generator_module
-
-    monkeypatch.setattr(generator_module, "summarize_item", _stub_summarize_success)
 
     issue = await generate_issue(
         date=datetime(2026, 8, 15, tzinfo=timezone.utc),

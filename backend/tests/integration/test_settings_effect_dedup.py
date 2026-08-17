@@ -22,6 +22,7 @@ from app.models.article import ArticleORM, RawItem, SourceKey, TypeKey
 from app.models.article_score import ArticleScoreORM
 from app.models.daily_issue import DailyIssueORM, IssueStatus
 from app.pipeline import generator as gen_mod
+from app.pipeline import summarizer
 
 
 AUTH = {"Authorization": "Bearer test-bearer-token"}
@@ -90,7 +91,7 @@ def stub_pipeline(monkeypatch):
     stub_client = _StubSummaryClient()
 
     monkeypatch.setattr(gen_mod, "collect_all", _fake_collect_all)
-    monkeypatch.setattr(gen_mod, "summarize_item", _stub_summarize_factory(stub_client))
+    monkeypatch.setattr(summarizer, "summarize_item", _stub_summarize_factory(stub_client))
     monkeypatch.setattr(llm_module, "LLMClient", lambda *a, **kw: stub_client)
     return stub_client
 
@@ -175,7 +176,7 @@ async def test_generate_issue_no_dedup_collisions_keeps_all_when_count_exceeds(
 
     stub_client = _StubSummaryClient()
     monkeypatch.setattr(gen_mod, "collect_all", _three)
-    monkeypatch.setattr(gen_mod, "summarize_item", _stub_summarize_factory(stub_client))
+    monkeypatch.setattr(summarizer, "summarize_item", _stub_summarize_factory(stub_client))
     monkeypatch.setattr(llm_module, "LLMClient", lambda *a, **kw: stub_client)
 
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
@@ -276,7 +277,7 @@ async def test_generate_issue_dedup_collapses_url_duplicates(
 
     custom = _CustomClient()
     monkeypatch.setattr(gen_mod, "collect_all", _three)
-    monkeypatch.setattr(gen_mod, "summarize_item", _stub_summarize_factory(custom))
+    monkeypatch.setattr(summarizer, "summarize_item", _stub_summarize_factory(custom))
     monkeypatch.setattr(llm_module, "LLMClient", lambda *a, **kw: custom)
 
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)

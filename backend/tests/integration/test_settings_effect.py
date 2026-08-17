@@ -84,9 +84,6 @@ async def test_save_settings_then_generate_filters_github(client: AsyncClient, m
 
     monkeypatch.setattr(gen_mod, "collect_all", fake_collect_all)
     monkeypatch.setattr(summarizer, "summarize_item", fake_summarize_item)
-    # Also patch the alias inside summarizer module if used
-    if hasattr(gen_mod, "summarize_item"):
-        monkeypatch.setattr(gen_mod, "summarize_item", fake_summarize_item)
 
     # 3. Trigger generate_issue for tomorrow
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
@@ -162,8 +159,6 @@ async def test_save_settings_then_generate_filters_by_type(client: AsyncClient, 
 
     monkeypatch.setattr(gen_mod, "collect_all", fake_collect_all)
     monkeypatch.setattr(summarizer, "summarize_item", fake_summarize_item)
-    if hasattr(gen_mod, "summarize_item"):
-        monkeypatch.setattr(gen_mod, "summarize_item", fake_summarize_item)
 
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
     issue = await gen_mod.generate_issue(date=tomorrow)

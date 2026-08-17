@@ -216,7 +216,6 @@ def patch_llm_success(monkeypatch):
             return mock_summary_response()
 
     monkeypatch.setattr(llm_module, "LLMClient", _FakeClient)
-    monkeypatch.setattr(summarizer_module, "LLMClient", _FakeClient)
     return _FakeClient
 
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from tenacity import (
     RetryError,
@@ -25,8 +26,15 @@ from tenacity import (
 )
 
 from app.config import get_settings
+from app.infra import llm as llm_module
 from app.infra.errors import PipelineBusyError
-from app.infra.llm import LLMClient, LLMProviderError, SummaryResult
+from app.infra.llm import LLMProviderError, SummaryResult
+
+if TYPE_CHECKING:
+    # Annotation-only. Runtime construction goes through llm_module so
+    # tests patch LLMClient at a single point (app.infra.llm).
+    from app.infra.llm import LLMClient
+
 from app.models.article import RawItem
 from app.models.meta import SourceKey, TypeKey
 from app.pipeline.authority import classify_authority
@@ -90,7 +98,7 @@ retry_policy = retry(
 
 @retry_policy
 async def _summarize_with_retry(
-    client: LLMClient, title: str, source: str, raw_text: str
+    client: "LLMClient", title: str, source: str, raw_text: str
 ) -> SummaryResult:
     """Inner retryable summarization call."""
     # Check budget before each attempt.
@@ -172,7 +180,7 @@ def _rule_fallback_summary(item: RawItem) -> SummaryResult:
 
 async def summarize_item(
     item: RawItem,
-    client: LLMClient | None = None,
+    client: "LLMClient | None" = None,
     *,
     type_hint: TypeKey | None = None,
 ) -> SummaryResult:
@@ -184,7 +192,7 @@ async def summarize_item(
 
     Raises PipelineBusyError only on budget exhaustion (caller must honor).
     """
-    c = client or LLMClient()
+    c = client or llm_module.LLMClient()
     try:
         result = await _summarize_with_retry(
             c, item.title, item.sourceName, item.rawText

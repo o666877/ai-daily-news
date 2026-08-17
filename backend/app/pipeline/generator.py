@@ -29,7 +29,6 @@ from app.models.meta import SourceKey, TypeKey
 from app.pipeline import summarizer
 from app.pipeline.collector import collect_all
 from app.pipeline.dedup import dedup_candidates, truncate_diverse
-from app.pipeline.summarizer import SummarizerFailure, summarize_item
 
 logger = logging.getLogger("aidaily.generator")
 
@@ -341,8 +340,10 @@ async def generate_issue(
         web_failures = 0
         for raw in raw_items:
             try:
-                summary_fields = await summarize_item(raw, client=llm_client)
-            except SummarizerFailure as exc:
+                summary_fields = await summarizer.summarize_item(
+                    raw, client=llm_client
+                )
+            except summarizer.SummarizerFailure as exc:
                 summarizer_failures += 1
                 if raw.sourceKey == SourceKey.WEB:
                     web_failures += 1
