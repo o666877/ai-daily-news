@@ -23,6 +23,12 @@ ID 后缀或列表位置重算（历史上有过后缀解析实现，已于 006 
 `app/services/article_assembly.py`——ORM 行到 API 模型（列表项/详情+score 子对象）的
 唯一转换点。字段名与 camelCase 键名重映射只存在于这里；新增字段只改装配器与契约文档。
 
+## 刊期仓库（issue repository）
+
+`app/pipeline/issue_repository.py`——刊期生成写路径的持久化 adapter：条目/评分 ORM
+构造、时间标签、类型解析（`effective_type`，设置过滤/选题/持久化三方共用同一实现）、
+状态收尾。生成器只编排策略（设置过滤、去重、准入、截断），不碰写库细节。
+
 ## 候选（Candidate）与准入（Admission）
 
 采集-摘要后的条目进入排序前称候选；综合分低于 `ADMISSION_FLOOR`（45）的候选被拒收。
