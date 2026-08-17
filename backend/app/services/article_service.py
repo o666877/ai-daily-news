@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.article import ArticleListItem, ArticleORM
 from app.models.article_score import ArticleScoreORM
-from app.models.meta import SourceKey, TypeKey
+from app.services.article_assembly import assemble_list_item
 
 
 async def list_articles(
@@ -56,20 +56,7 @@ async def list_articles(
         .limit(page_size)
         .options(selectinload(ArticleORM.score))
     )
-    items = [
-        ArticleListItem(
-            id=row.id,
-            title=row.title,
-            excerpt=row.excerpt,
-            type=TypeKey(row.type),
-            src=SourceKey(row.src),
-            time=row.time,
-            readingMinutes=row.reading_minutes,
-            compositeScore=row.score.composite_score if row.score else None,
-            mustRead=row.is_must_read,
-        )
-        for row in rows.scalars()
-    ]
+    items = [assemble_list_item(row) for row in rows.scalars()]
     applied = {key: value for key, value in filters.items() if value is not None}
     return items, total, applied
 

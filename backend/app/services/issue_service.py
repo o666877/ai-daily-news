@@ -7,7 +7,6 @@ composite_score DESC, time DESC (legacy rows with NULL composite_score sort last
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +18,7 @@ from app.infra.errors import (
 )
 from app.models.article import ArticleListItem, ArticleORM
 from app.models.article_score import ArticleScoreORM
+from app.services.article_assembly import assemble_list_item
 from app.models.daily_issue import (
     DailyIssue,
     DailyIssueORM,
@@ -98,20 +98,7 @@ async def get_today(
         )
         .options(selectinload(ArticleORM.score))
     )
-    items = [
-        ArticleListItem(
-            id=a.id,
-            title=a.title,
-            excerpt=a.excerpt,
-            type=TypeKey(a.type),
-            src=SourceKey(a.src),
-            time=a.time,
-            readingMinutes=a.reading_minutes,
-            compositeScore=a.score.composite_score if a.score else None,
-            mustRead=a.is_must_read,
-        )
-        for a in items_result.scalars()
-    ]
+    items = [assemble_list_item(a) for a in items_result.scalars()]
     return issue, summary, items
 
 

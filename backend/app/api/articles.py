@@ -13,7 +13,8 @@ from app.infra.db import get_session
 from app.infra.errors import ArticleNotFoundError, InvalidEnumError
 from app.infra.pagination import PageParams, parse_page_params
 from app.infra.ratelimit import read_limiter
-from app.models import Article, ArticleORM, SourceKey, TypeKey
+from app.models import ArticleORM, SourceKey, TypeKey
+from app.services.article_assembly import assemble_detail
 from app.services.article_service import list_articles
 
 router = APIRouter(prefix="/api/v1", tags=["articles"])
@@ -54,6 +55,22 @@ _DETAIL_EXAMPLE = {
     "sourceName": "reddit.com/r/MachineLearning",
     "readingMinutes": 5,
     "publishedAt": "2026-08-12T09:30:00+08:00",
+    "compositeScore": 88,
+    "mustRead": True,
+    "score": {
+        "compositeScore": 88,
+        "dimensionScores": {
+            "authority": 90,
+            "depth": 85,
+            "timeliness": 95,
+            "expression": 75,
+            "engagement": 50,
+        },
+        "authorityTier": "official_blog",
+        "scoreSource": "llm",
+        "topicId": "langchain-0-2",
+        "opinionFingerprint": "langchain-0-2:official-announcement",
+    },
 }
 
 
@@ -161,45 +178,7 @@ async def get_article_detail(
     if orm is None:
         raise ArticleNotFoundError(f"文章不存在: {article_id}")
 
-    score_obj = None
-    if orm.score is not None:
-        score_obj = {
-            "compositeScore": orm.score.composite_score,
-            "dimensionScores": {
-                "authority": orm.score.dim_authority,
-                "depth": orm.score.dim_depth,
-                "timeliness": orm.score.dim_timeliness,
-                "expression": orm.score.dim_expression,
-                "engagement": orm.score.dim_engagement,
-            },
-            "authorityTier": orm.score.authority_tier,
-            "scoreSource": orm.score.score_source,
-            "topicId": orm.score.topic_id,
-            "opinionFingerprint": orm.score.opinion_fingerprint,
-        }
-
-    article = Article(
-        id=orm.id,
-        title=orm.title,
-        excerpt=orm.excerpt,
-        type=TypeKey(orm.type),
-        src=SourceKey(orm.src),
-        time=orm.time,
-        readingMinutes=orm.reading_minutes,
-        compositeScore=orm.score.composite_score if orm.score else None,
-        issueId=orm.issue_id,
-        lede=orm.lede,
-        summary=orm.summary,
-        body=orm.body,
-        quote=orm.quote,
-        points=orm.points,
-        sourceUrl=orm.source_url,
-        sourceName=orm.source_name,
-        publishedAt=orm.published_at,
-        score=score_obj,
-        mustRead=orm.is_must_read,
-    )
-    return article.model_dump(by_alias=True, mode="json")
+    return assemble_detail(orm).model_dump(by_alias=True, mode="json")
 
 
 __all__ = ["router"]
