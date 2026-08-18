@@ -362,6 +362,28 @@
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
     color: var(--accent-ink); background: var(--accent-soft);
   }
+
+  .radio-group { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .radio-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px;
+    font-size: 13px; color: var(--ink-muted); cursor: pointer;
+    background: var(--surface); transition: border-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+  }
+  .radio-pill:hover { border-color: var(--ink-muted); color: var(--ink); }
+  .radio-pill input { margin: 0; accent-color: var(--accent); }
+  .radio-pill:has(input:checked) {
+    border-color: var(--ink); color: var(--ink);
+    background: color-mix(in oklab, var(--ink) 6%, var(--surface));
+  }
+
+  .time-input {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+    background: var(--surface); cursor: pointer;
+  }
+  .time-input:disabled { opacity: 0.45; cursor: not-allowed; }
+  .time-input:focus-visible { outline: var(--focus-ring); }
 </style>
 </head>
 <body>
@@ -499,10 +521,23 @@
       </div>
     </section>
     <section class="settings-section">
-      <h3>推送</h3>
+      <h3>每日推送</h3>
       <div class="switch-row">
-        <div class="switch-label">每日推送<small>每天早晨 8:00 生成今日刊</small></div>
+        <div class="switch-label">推送开关<small>开启后每天按时生成今日刊</small></div>
         <label class="switch"><input type="checkbox" data-toggle="dailyPush" checked><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">推送时间<small>每日生成今日刊的时间</small></div>
+        <input type="time" id="pushTime" value="08:00" class="time-input" aria-label="推送时间">
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">日报条数<small>每期刊物收录的条目上限</small></div>
+        <div class="radio-group">
+          <label class="radio-pill"><input type="radio" name="dailyCount" value="10"> 10</label>
+          <label class="radio-pill"><input type="radio" name="dailyCount" value="15" checked> 15</label>
+          <label class="radio-pill"><input type="radio" name="dailyCount" value="20"> 20</label>
+          <label class="radio-pill"><input type="radio" name="dailyCount" value="30"> 30</label>
+        </div>
       </div>
     </section>
   </div>

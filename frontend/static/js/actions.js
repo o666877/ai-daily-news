@@ -74,19 +74,29 @@ function applyTogglesToUI() {
   document.querySelectorAll("[data-src-toggle]").forEach(function (inp) { inp.checked = !!state.toggles[inp.dataset.srcToggle]; });
   document.querySelectorAll("[data-type-toggle]").forEach(function (inp) { inp.checked = !!state.toggles[inp.dataset.typeToggle]; });
   var dp = document.querySelector("[data-toggle='dailyPush']"); if (dp) dp.checked = !!state.toggles.dailyPush;
+  var pt = document.getElementById("pushTime");
+  if (pt) { pt.value = state.pushTime; pt.disabled = !state.toggles.dailyPush; }
+  document.querySelectorAll("[name='dailyCount']").forEach(function (inp) {
+    inp.checked = (parseInt(inp.value, 10) === state.dailyCount);
+  });
 }
 
 function readTogglesFromUI() {
   document.querySelectorAll("[data-src-toggle]").forEach(function (inp) { state.toggles[inp.dataset.srcToggle] = inp.checked; });
   document.querySelectorAll("[data-type-toggle]").forEach(function (inp) { state.toggles[inp.dataset.typeToggle] = inp.checked; });
   var dp = document.querySelector("[data-toggle='dailyPush']"); if (dp) state.toggles.dailyPush = dp.checked;
+  var pt = document.getElementById("pushTime");
+  state.pushTime = (pt && pt.value) ? pt.value : state.pushTime;
+  var dc = document.querySelector("[name='dailyCount']:checked");
+  if (dc) state.dailyCount = parseInt(dc.value, 10);
 }
 
 function syncTogglesFromSettings(s) {
   state.toggles.x = !!s.sources.x; state.toggles.github = !!s.sources.github; state.toggles.reddit = !!s.sources.reddit; state.toggles.web = !!s.sources.web;
   state.toggles.agent = !!s.types.agent; state.toggles["self-improve"] = !!s.types.self_improve; state.toggles["open-source"] = !!s.types.open_source; state.toggles.tools = !!s.types.tools; state.toggles.commentary = !!s.types.commentary;
   state.toggles.dailyPush = !!s.dailyPush.enabled;
-  state.styleMode = s.styleMode || 'standard';
+  state.pushTime = (s.dailyPush && s.dailyPush.time) || "08:00";
+  state.dailyCount = s.dailyCount || 15;
 }
 
 function handleOpenSettings() {
@@ -111,8 +121,8 @@ function handleApplySettings() {
   var body = {
     sources: { x: state.toggles.x, github: state.toggles.github, reddit: state.toggles.reddit, web: state.toggles.web },
     types: { agent: state.toggles.agent, self_improve: state.toggles["self-improve"], open_source: state.toggles["open-source"], tools: state.toggles.tools, commentary: state.toggles.commentary },
-    dailyPush: { enabled: state.toggles.dailyPush, time: "08:00" },
-    styleMode: state.styleMode || 'standard'
+    dailyPush: { enabled: state.toggles.dailyPush, time: state.pushTime || "08:00" },
+    dailyCount: state.dailyCount || 15
   };
   saveSettings(body).then(function (r) {
     document.getElementById("settingsDialog").close();

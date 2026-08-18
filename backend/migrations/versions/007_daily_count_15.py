@@ -24,8 +24,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # The dev database's settings table was created without inline named
+    # CHECK constraints (SQLite never got them from 003's batch ops), so
+    # dropping must be conditional or batch mode raises "No such constraint".
+    insp = sa.inspect(op.get_bind())
+    checks = {c["name"] for c in insp.get_check_constraints("settings")}
     with op.batch_alter_table("settings") as batch_op:
-        batch_op.drop_constraint("settings_daily_count_enum", type_="check")
+        if "settings_daily_count_enum" in checks:
+            batch_op.drop_constraint("settings_daily_count_enum", type_="check")
         batch_op.create_check_constraint(
             "settings_daily_count_enum",
             "daily_count IN (8, 10, 15, 20, 30, 40, 50)",
@@ -45,3 +51,5 @@ def downgrade() -> None:
             "settings_daily_count_enum",
             "daily_count IN (10, 20, 30, 40, 50)",
         )
+        # downgrade after this point cannot restore the missing inline
+        # constraints case; the constraint simply lands where it was.

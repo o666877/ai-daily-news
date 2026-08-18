@@ -11,15 +11,14 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import StrictBool, field_validator, model_validator
-from sqlalchemy import JSON, CheckConstraint, DateTime, Integer, String
+from sqlalchemy import JSON, CheckConstraint, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infra.db import Base
 from app.models._base import CamelModel
 from app.models.meta import SOURCE_KEYS, TYPE_KEYS
 
-DAILY_COUNT_VALUES = (8, 10, 15, 20, 30, 40, 50)
-STYLE_MODE_VALUES = ("concise", "standard", "detailed")
+DAILY_COUNT_VALUES = (10, 15, 20, 30)
 
 
 class SettingsORM(Base):
@@ -31,9 +30,6 @@ class SettingsORM(Base):
         CheckConstraint(
             f"daily_count IN {DAILY_COUNT_VALUES}", name="settings_daily_count_enum"
         ),
-        CheckConstraint(
-            f"style_mode IN {STYLE_MODE_VALUES}", name="settings_style_mode_enum"
-        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
@@ -43,9 +39,6 @@ class SettingsORM(Base):
     # Runtime default is 15; the database check constraint intentionally accepts only
     # Pydantic-facing values when writing through SettingsIn.
     daily_count: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
-    style_mode: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="standard"
-    )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -66,8 +59,7 @@ class SettingsOut(CamelModel):
     sources: dict[str, bool]
     types: dict[str, bool]
     dailyPush: DailyPush
-    dailyCount: Literal[8, 10, 15, 20, 30, 40, 50] = 15
-    styleMode: Literal["concise", "standard", "detailed"] = "standard"
+    dailyCount: Literal[10, 15, 20, 30] = 15
     updatedAt: str | None = None
 
 
@@ -77,8 +69,7 @@ class SettingsIn(CamelModel):
     sources: dict[str, StrictBool]
     types: dict[str, StrictBool]
     dailyPush: DailyPush
-    dailyCount: Literal[8, 10, 15, 20, 30, 40, 50]
-    styleMode: Literal["concise", "standard", "detailed"]
+    dailyCount: Literal[10, 15, 20, 30]
 
     @model_validator(mode="after")
     def _check_keys(self) -> "SettingsIn":
@@ -105,7 +96,6 @@ def default_settings() -> dict:
         "types": {k: True for k in TYPE_KEYS},
         "daily_push": {"enabled": True, "time": "08:00"},
         "daily_count": 15,
-        "style_mode": "standard",
     }
 
 
@@ -127,7 +117,6 @@ def merged_bool_map(
 
 __all__ = [
     "DAILY_COUNT_VALUES",
-    "STYLE_MODE_VALUES",
     "DailyPush",
     "SettingsORM",
     "SettingsOut",

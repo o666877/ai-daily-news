@@ -119,7 +119,6 @@ async def test_generate_issue_truncates_to_daily_count(
         },
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 10,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text
@@ -156,7 +155,7 @@ async def test_generate_issue_truncates_to_daily_count(
 async def test_generate_issue_no_dedup_collisions_keeps_all_when_count_exceeds(
     client: AsyncClient, monkeypatch, db_session: AsyncSession
 ) -> None:
-    """Save dailyCount=50, only 3 candidates → issue has 3 (no padding)."""
+    """Save dailyCount=30 (max), only 3 candidates → issue has 3 (no padding)."""
     body = {
         "sources": {"x": True, "github": True, "reddit": True, "web": True},
         "types": {
@@ -167,8 +166,7 @@ async def test_generate_issue_no_dedup_collisions_keeps_all_when_count_exceeds(
             "commentary": True,
         },
         "dailyPush": {"enabled": True, "time": "08:00"},
-        "dailyCount": 50,
-        "styleMode": "standard",
+        "dailyCount": 30,
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text
@@ -209,7 +207,6 @@ async def test_generate_issue_dedup_collapses_url_duplicates(
         },
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 10,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text

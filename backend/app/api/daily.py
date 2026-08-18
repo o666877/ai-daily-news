@@ -76,7 +76,7 @@ _DAILY_TODAY_EXAMPLE = {
         },
     },
     summary="今日刊概览",
-    description="首屏一次调用：报头 + 数量徽标 + 索引列表（7 字段/条）。详见 `contracts/daily-today.md`。",
+    description="首屏一次调用：报头 + 数量徽标 + 索引列表（7 字段/条）。summary 为分布统计（byType/bySource 计数），前端不消费，仅供统计用途。",
 )
 async def daily_today(
     request: Request,

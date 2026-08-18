@@ -31,7 +31,6 @@ from app.models.meta import (
 )
 from app.models.settings import (
     DAILY_COUNT_VALUES,
-    STYLE_MODE_VALUES,
     DailyPush,
     SettingsIn,
     SettingsORM,
@@ -55,7 +54,6 @@ __all__ = [
     "MetaOut",
     "SOURCES",
     "SOURCE_KEYS",
-    "STYLE_MODE_VALUES",
     "SettingsIn",
     "SettingsORM",
     "SettingsOut",

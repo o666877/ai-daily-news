@@ -59,6 +59,8 @@ document.querySelectorAll("[data-type-toggle]").forEach(function (inp) {
 });
 document.querySelector("[data-toggle='dailyPush']").addEventListener("change", function (e) {
   state.toggles.dailyPush = e.target.checked;
+  var pt = document.getElementById("pushTime");
+  if (pt) pt.disabled = !e.target.checked;
   toast(e.target.checked ? "每日推送已开启 · 明天生效" : "每日推送已关闭 · 明天生效");
 });
 document.getElementById("resetSettings").addEventListener("click", handleResetSettings);

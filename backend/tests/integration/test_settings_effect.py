@@ -67,7 +67,6 @@ async def test_save_settings_then_generate_filters_github(client: AsyncClient, m
         "types": {"agent": True, "self_improve": True, "open_source": True, "tools": True, "commentary": True},
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 30,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text
@@ -130,7 +129,6 @@ async def test_save_settings_then_generate_filters_by_type(client: AsyncClient, 
         },
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 30,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text

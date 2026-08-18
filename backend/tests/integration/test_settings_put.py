@@ -16,7 +16,6 @@ VALID_BODY = {
     "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True, "commentary": True},
     "dailyPush": {"enabled": True, "time": "09:30"},
     "dailyCount": 20,
-    "styleMode": "standard",
 }
 
 
@@ -133,7 +132,6 @@ async def test_put_settings_can_disable_commentary_and_sticks(client: AsyncClien
         },
         "dailyPush": VALID_BODY["dailyPush"],
         "dailyCount": 20,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text
@@ -151,12 +149,12 @@ async def test_put_settings_without_auth_returns_1003(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# T026 (US2): dailyCount validation — must be one of {8,10,15,20,30,40,50}.
+# T026 (US2): dailyCount validation — must be one of {10,15,20,30}.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_value", ["30", 30.0, 0, 60, -10, 100])
+@pytest.mark.parametrize("bad_value", [8, 40, 50, "30", 30.0, 0, 60, -10, 100])
 async def test_put_settings_daily_count_out_of_enum_returns_1005(
     client: AsyncClient, bad_value: object
 ) -> None:
@@ -165,7 +163,6 @@ async def test_put_settings_daily_count_out_of_enum_returns_1005(
         "types": VALID_BODY["types"],
         "dailyPush": VALID_BODY["dailyPush"],
         "dailyCount": bad_value,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 422, res.text
@@ -173,7 +170,7 @@ async def test_put_settings_daily_count_out_of_enum_returns_1005(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("good_value", [10, 15, 20, 30, 40, 50])
+@pytest.mark.parametrize("good_value", [10, 15, 20, 30])
 async def test_put_settings_daily_count_valid_returns_echo(
     client: AsyncClient, good_value: int
 ) -> None:
@@ -182,7 +179,6 @@ async def test_put_settings_daily_count_valid_returns_echo(
         "types": VALID_BODY["types"],
         "dailyPush": VALID_BODY["dailyPush"],
         "dailyCount": good_value,
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 200, res.text
@@ -195,7 +191,6 @@ async def test_put_settings_daily_count_missing_returns_1005(client: AsyncClient
         "sources": VALID_BODY["sources"],
         "types": VALID_BODY["types"],
         "dailyPush": VALID_BODY["dailyPush"],
-        "styleMode": "standard",
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 422, res.text

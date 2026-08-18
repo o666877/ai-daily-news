@@ -55,7 +55,8 @@ async def test_get_settings_with_invalid_token_returns_1003(client: AsyncClient)
 
 
 # ---------------------------------------------------------------------------
-# T027 (US2): response includes dailyCount + styleMode.
+# T027 (US2): response includes dailyCount. styleMode was removed
+# (reading-density feature dropped; frontend renders a fixed layout).
 # ---------------------------------------------------------------------------
 
 
@@ -66,15 +67,7 @@ async def test_get_settings_includes_daily_count_default_15(client: AsyncClient)
     body = res.json()
     assert "dailyCount" in body
     assert body["dailyCount"] == 15  # default (changed from 30 → 8 → 15)
-
-
-@pytest.mark.asyncio
-async def test_get_settings_includes_style_mode_default_standard(client: AsyncClient) -> None:
-    res = await client.get("/api/v1/settings", headers=AUTH)
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert "styleMode" in body
-    assert body["styleMode"] == "standard"
+    assert "styleMode" not in body
 
 
 @pytest.mark.asyncio
@@ -84,7 +77,6 @@ async def test_get_settings_reflects_put_daily_count_change(client: AsyncClient)
         "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True, "commentary": True},
         "dailyPush": {"enabled": True, "time": "09:30"},
         "dailyCount": 10,
-        "styleMode": "detailed",
     }
     put_res = await client.put("/api/v1/settings", json=put_body, headers=AUTH)
     assert put_res.status_code == 200, put_res.text
@@ -93,4 +85,3 @@ async def test_get_settings_reflects_put_daily_count_change(client: AsyncClient)
     assert get_res.status_code == 200
     body = get_res.json()
     assert body["dailyCount"] == 10
-    assert body["styleMode"] == "detailed"

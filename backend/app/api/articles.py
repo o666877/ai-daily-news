@@ -100,7 +100,7 @@ _DETAIL_EXAMPLE = {
         },
     },
     summary="条目列表（筛选 + 分页）",
-    description="类型/来源双维 AND 筛选 + 分页。详见 `contracts/articles-list.md`。",
+    description="类型/来源双维 AND 筛选 + 分页。分页为 API 预留能力：一期上限 30 条，前端采用 pageSize=50 单页策略，无翻页 UI。",
 )
 @read_limiter.limit("120/minute")
 async def get_articles(

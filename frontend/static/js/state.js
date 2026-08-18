@@ -32,7 +32,8 @@ var state = {
   articles: [],
   byId: {},
   issueId: null,
-  styleMode: "standard"
+  dailyCount: 15,
+  pushTime: "08:00"
 };
 
 function typeToBackend(k) { return TYPE_TO_BACKEND[k] || k; }

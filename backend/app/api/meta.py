@@ -45,6 +45,7 @@ _META_EXAMPLE = {
         {"key": "self_improve", "name": "持续学习 / 自我进化", "shortName": "持续学习"},
         {"key": "open_source", "name": "开源项目", "shortName": "开源"},
         {"key": "tools", "name": "工具与效率", "shortName": "工具效率"},
+        {"key": "commentary", "name": "观点时评", "shortName": "观点"},
     ],
 }
 
@@ -59,7 +60,7 @@ _META_EXAMPLE = {
         }
     },
     summary="信息源/类型元数据",
-    description="筛选 chips + 设置面板开关列表的数据源；前端不硬编码。详见 `contracts/meta.md`。",
+    description="信息源/类型元数据（key/name/shortName）。注：前端目前硬编码 chips 与开关文案（含编辑性描述），本端点仅供脚本/集成方使用。",
 )
 async def get_meta() -> dict:
     """Return 4 sources + 4 types. No DB hit; built from constants."""

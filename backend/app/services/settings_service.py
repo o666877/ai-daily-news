@@ -43,7 +43,6 @@ def _row_to_out(orm: SettingsORM) -> SettingsOut:
             time=str(dp.get("time", "08:00")),
         ),
         dailyCount=orm.daily_count,
-        styleMode=orm.style_mode,
         updatedAt=orm.updated_at.isoformat() + "Z" if orm.updated_at else None,
     )
 
@@ -68,7 +67,6 @@ class SettingsService:
                 types=defaults["types"],
                 daily_push=defaults["daily_push"],
                 daily_count=defaults["daily_count"],
-                style_mode=defaults["style_mode"],
                 updated_at=None,
             )
             self._session.add(orm)
@@ -88,7 +86,6 @@ class SettingsService:
             "time": payload.dailyPush.time,
         }
         orm.daily_count = payload.dailyCount
-        orm.style_mode = payload.styleMode
         orm.updated_at = datetime.utcnow()
         await self._session.flush()
         await self._session.commit()
@@ -101,7 +98,6 @@ class SettingsService:
         orm.types = defaults["types"]
         orm.daily_push = defaults["daily_push"]
         orm.daily_count = defaults["daily_count"]
-        orm.style_mode = defaults["style_mode"]
         orm.updated_at = datetime.utcnow()
         await self._session.flush()
         await self._session.commit()
