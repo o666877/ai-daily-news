@@ -28,6 +28,10 @@ DEFAULT_X_ACCOUNTS: list[str] = [
     "huggingface",
     "StabilityAI",
     "MistralAI",
+    # Research digests & agent tooling
+    "_akhaliq",         # daily LLM/agent paper digests — continual-learning / self-improvement papers pass through here
+    "jerryjliu0",       # LlamaIndex author — agent tooling ecosystem
+    "omarsar0",         # NLP/LLM research roundups
     # Additional KOLs
     "AndrewYNg",
     "iaborodescu",

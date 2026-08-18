@@ -235,6 +235,24 @@ async def test_collect_github_one_query_fails_others_succeed(monkeypatch):
     assert items[0].sourceUrl == "https://github.com/user/ok-1"
 
 
+def test_github_build_queries_shape():
+    """Query set locks the 5 topics: llm / ai-agents / artificial-intelligence /
+    continual-learning / agent-skills — all gh search repos, star-sorted, JSON."""
+    from app.pipeline.collectors.github import _build_queries
+
+    queries = _build_queries()
+    assert len(queries) == 5
+    topics = []
+    for q in queries:
+        assert q[:3] == ["gh", "search", "repos"]
+        assert "--json" in q and "--sort" in q and "--order" in q
+        topics.append(q[q.index("--topic") + 1])
+    assert topics == [
+        "llm", "ai-agents", "artificial-intelligence",
+        "continual-learning", "agent-skills",
+    ]
+
+
 # ---------- Reddit collector (Atom .rss feed) ----------
 #
 # Production uses httpx.AsyncClient + a custom User-Agent and parses the

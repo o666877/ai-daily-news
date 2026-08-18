@@ -83,6 +83,10 @@ DEFAULT_SOURCES: list[tuple[str, str]] = [
     ("AWS ML Blog", "https://aws.amazon.com/blogs/machine-learning/feed/"),
     ("KD Nuggets", "https://www.kdnuggets.com/feed"),
     ("Hacker News AI", "https://hnrss.org/newest?q=AI"),
+    # Verified 2026-08-18: HTTP 200 + parseable entries on all three.
+    ("Interconnects", "https://www.interconnects.ai/feed"),  # Nathan Lambert — LLM training research
+    ("Lilian Weng", "https://lilianweng.github.io/index.xml"),  # LLM/agent long-form; low frequency
+    ("Eugene Yan", "https://eugeneyan.com/rss/"),  # LLM apps / agents roundups; low frequency
 ]
 
 # Backwards-compatible alias for any code/tests referencing the old name.

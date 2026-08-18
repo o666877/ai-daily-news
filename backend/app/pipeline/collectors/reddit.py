@@ -46,12 +46,16 @@ logger = logging.getLogger("aidaily.collector.reddit")
 
 # AI-relevant subreddits. Mix of research, applied AI, open source, and
 # broad community hubs so a single sub going quiet doesn't zero the source.
+# Verified via opencli bridge probe 2026-08-18 (AI_Agents 10 posts,
+# ChatGPTCoding 10 posts under top/week).
 SUBREDDITS: list[str] = [
     "MachineLearning",  # research papers, releases — slow but authoritative
     "artificial",       # general AI news, broad community
     "OpenAI",           # vendor releases / discussion
     "Anthropic",        # vendor releases / discussion
     "localLLaMA",       # open-source LLM releases, high signal
+    "AI_Agents",        # agent-specific sub — agent topic gap
+    "ChatGPTCoding",    # agent frameworks / tools practice posts — tools gap
 ]
 
 TIME_RANGE: str = "week"          # Reddit `t=` param; week gives the 72h filter room.

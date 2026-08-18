@@ -52,20 +52,27 @@ def _recent_date(days: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 
-def _build_queries(since_recent: str, since_updated: str) -> list[list[str]]:
-    """Construct 3 complementary `gh search repos` argv lists.
+def _build_queries() -> list[list[str]]:
+    """Construct 5 complementary `gh search repos` argv lists.
 
     Q1: New this week, Python, llm topic — surfaces fast-growing new repos.
     Q2: New this week, ai-agents topic — agent ecosystem, any language.
     Q3: Recently updated, Python, artificial-intelligence topic — active mature repos.
+    Q4: New this month, continual-learning topic — niche is sparse; a weekly
+        window would usually come back empty.
+    Q5: New past 2 weeks, agent-skills topic — Anthropic-style skills repos;
+        any language (many are pure markdown and carry no language tag).
     """
     base = ["gh", "search", "repos"]
     json_arg = ",".join(JSON_FIELDS)
     common = ["--json", json_arg, "--sort", "stars", "--order", "desc", "-L", str(PER_QUERY_LIMIT)]
+    week = _recent_date(7)
     return [
-        base + ["--language", "python", "--topic", "llm", "--created", f">{since_recent}", *common],
-        base + ["--topic", "ai-agents", "--created", f">{since_recent}", *common],
-        base + ["--language", "python", "--topic", "artificial-intelligence", "--updated", f">{since_updated}", *common],
+        base + ["--language", "python", "--topic", "llm", "--created", f">{week}", *common],
+        base + ["--topic", "ai-agents", "--created", f">{week}", *common],
+        base + ["--language", "python", "--topic", "artificial-intelligence", "--updated", f">{_recent_date(3)}", *common],
+        base + ["--topic", "continual-learning", "--created", f">{_recent_date(30)}", *common],
+        base + ["--topic", "agent-skills", "--created", f">{_recent_date(14)}", *common],
     ]
 
 
@@ -172,16 +179,14 @@ async def _check_gh_available() -> bool:
 async def collect_github() -> list[RawItem]:
     """Fetch trending AI repos via `gh` CLI. Returns RawItem list (possibly empty).
 
-    Strategy: 3 complementary `gh search repos` queries aggregated + deduped + capped.
+    Strategy: 5 complementary `gh search repos` queries aggregated + deduped + capped.
     Failures (gh missing, query error, timeout) -> log + skip; never raise.
     """
     if not await _check_gh_available():
         logger.warning("github_gh_missing", extra={"source": SourceKey.GITHUB.value})
         return []
 
-    since_recent = _recent_date(days=7)
-    since_updated = _recent_date(days=3)
-    queries = _build_queries(since_recent, since_updated)
+    queries = _build_queries()
 
     # Run all queries concurrently; each handles its own errors and returns [].
     query_results = await asyncio.gather(*[_run_gh_query(q) for q in queries])
