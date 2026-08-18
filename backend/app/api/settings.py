@@ -118,6 +118,7 @@ async def put_settings(
         raise BizValidationError(msg) from exc
 
     out, eff = await service.save(validated)
+    _sync_scheduler_push(out)
     body = out.model_dump(by_alias=True, mode="json")
     response = JSONResponse(content=body)
     response.headers["X-Effective-At"] = eff
@@ -144,10 +145,25 @@ async def reset_settings(
 ) -> JSONResponse:
     """Reset preferences to all-on, 08:00."""
     out, eff = await service.reset()
+    _sync_scheduler_push(out)
     body = out.model_dump(by_alias=True, mode="json")
     response = JSONResponse(content=body)
     response.headers["X-Effective-At"] = eff
     return response
+
+
+def _sync_scheduler_push(out: SettingsOut) -> None:
+    """Re-register the daily cron from the just-saved dailyPush settings.
+
+    Best-effort: apply_push_schedule is a no-op unless the scheduler is
+    running (tests boot the app with a noop lifespan).
+    """
+    try:
+        from app.infra.scheduler import apply_push_schedule
+
+        apply_push_schedule(out.dailyPush.enabled, out.dailyPush.time)
+    except Exception:  # pragma: no cover - scheduler is best-effort
+        pass
 
 
 __all__ = ["router"]

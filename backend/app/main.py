@@ -62,11 +62,21 @@ async def lifespan(app: FastAPI):
     await init_db(get_engine())
     # First-install auto-trigger (FR-001b).
     await _maybe_trigger_first_issue()
-    # Start scheduler.
+    # Start scheduler (env-default cron first, then override from saved
+    # settings' dailyPush so the UI-configured time/enabled wins).
     try:
-        from app.infra.scheduler import start_scheduler
+        from app.infra.db import get_session_factory
+        from app.infra.scheduler import (
+            apply_push_schedule,
+            resolve_push_schedule,
+            start_scheduler,
+        )
 
         await start_scheduler()
+        factory = get_session_factory()
+        async with factory() as session:
+            enabled, hhmm = await resolve_push_schedule(session)
+        apply_push_schedule(enabled, hhmm)
     except Exception as exc:  # scheduler is best-effort
         logger.warning(
             "scheduler_start_failed",

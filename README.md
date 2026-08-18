@@ -151,7 +151,7 @@ docker compose up -d
 | `AIDAILY_PORT`            | `8000`              | 监听端口                       |
 | `AIDAILY_TZ`              | `Asia/Shanghai`     | 时区（影响刊期日期判定）               |
 | `AIDAILY_DB_PATH`         | `./data/aidaily.db` | SQLite 路径（`:memory:` 用于测试） |
-| `AIDAILY_DAILY_PUSH_TIME` | `08:00`             | 每日生成时刻（`HH:mm` 24h）        |
+| `AIDAILY_DAILY_PUSH_TIME` | `08:00`             | 每日生成时刻兜底值；实际以设置面板「推送时间」为准（改后立即重排 cron） |
 
 ### 信息源凭据
 
