@@ -5,7 +5,6 @@
 [![CI](https://github.com/your-org/ai-daily-news/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](backend/tests/)
 
 ---
 
@@ -13,9 +12,9 @@
 
 AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 (Asia/Shanghai) 自动生成一期「AI 日报」，包含：
 
-- **今日刊**：当日 4 大来源 + 4 大分类聚合，每篇含 LLM 摘要（导语/正文/引用/要点）
-- **双维筛选**：4 类型 × 4 来源任意组合（Reddit+Agent、X+开源 等）
-- **偏好配置**：自定义开关与推送时间，下一期自动生效
+- **今日刊**：当日 4 大来源 + 5 大分类聚合，每篇含 LLM 摘要（导语/正文/引用/要点）
+- **双维筛选**：5 类型 × 4 来源任意组合（Reddit+Agent、X+开源 等）
+- **偏好配置**：信息源/类型开关、日报条数（10/15/20/30）、推送时间，下一期自动生效
 - **分享卡片**：一键生成可公开的卡片链接
 - **首装自动触发**：第一次启动无需等到次日，5-10 分钟内出首期
 
@@ -27,6 +26,7 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 | `github` (GitHub trending + maintainer events) | `self_improve` (持续学习 / 自我进化) |
 | `reddit` (PRAW: MachineLearning, LocalLLaMA, ...) | `open_source` (开源项目) |
 | `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率) |
+| | `commentary` (观点时评) |
 
 ---
 
@@ -197,7 +197,7 @@ curl -s "http://127.0.0.1:8000/api/v1/articles/20260812-0003"
 curl -s "http://127.0.0.1:8000/api/v1/meta"
 ```
 
-返回 `{sources[4], types[4]}`。前端 chips 数据源，**不硬编码**。
+返回 `{sources[4], types[5]}`。供脚本与集成方使用（前端目前硬编码 chips 与开关文案）。
 
 #### 5. `GET /api/v1/healthz` — 健康检查
 
@@ -232,13 +232,14 @@ curl -s -X PUT "http://127.0.0.1:8000/api/v1/settings" \
   -H "Content-Type: application/json" \
   -d '{
     "sources": {"x": true, "github": false, "reddit": true, "web": true},
-    "types": {"agent": true, "self_improve": true, "open_source": false, "tools": true},
-    "dailyPush": {"enabled": true, "time": "08:00"}
+    "types": {"agent": true, "self_improve": true, "open_source": false, "tools": true, "commentary": true},
+    "dailyPush": {"enabled": true, "time": "08:00"},
+    "dailyCount": 15
   }' \
   -D -  # 显示响应头以验证 X-Effective-At
 ```
 
-响应头含 `X-Effective-At: 20260813`（明日刊期生效）。校验失败 → `422 1005`。
+响应头含 `X-Effective-At: 20260813`（明日刊期生效）。**所有字段必填**（sources/types 键必须齐全，`dailyCount` 取值 `10/15/20/30`）。校验失败 → `422 1005`。
 
 #### 8. `POST /api/v1/settings/reset` — 恢复默认
 
@@ -362,7 +363,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ai-daily-news/
 ├── backend/                    # Python FastAPI 后端
 │   ├── app/
-│   │   ├── api/                # 9 个路由
+│   │   ├── api/                # 路由：settings / articles / daily / meta / share / healthz
 │   │   ├── config.py           # pydantic-settings 配置
 │   │   ├── infra/              # db/auth/logging/middleware/ratelimit/...
 │   │   ├── models/             # SQLAlchemy ORM + Pydantic schemas
@@ -375,12 +376,13 @@ ai-daily-news/
 │   ├── pyproject.toml
 │   ├── Dockerfile
 │   └── pytest.ini
-├── frontend/                   # 静态前端（无构建步骤）
+├── frontend/                   # 静态前端（原生 ES Module，无构建步骤）
 │   ├── index.html
 │   └── static/
-│       ├── app.js              # 主 JS（Alpine.js + htmx）
+│       ├── js/                 # api / state / actions / render / ui / markdown / main
 │       ├── icons/              # SVG 图标
-│       └── vendor/             # Alpine 3.14.1 + htmx 1.19.5
+│       ├── marked.min.js       # Markdown 渲染（vendor）
+│       └── purify.min.js       # HTML 消毒（vendor）
 ├── specs/001-ai-daily-news/    # 设计文档（contracts/plan/research/...）
 ├── .github/workflows/ci.yml    # GitHub Actions CI
 ├── docker-compose.yml          # 一键部署
@@ -400,7 +402,7 @@ ai-daily-news/
 - **本地 SQLite**：单机部署；多副本水平扩展需替换为 PostgreSQL（v2 规划）。
 - **无用户体系**：单用户 Bearer token；多租户在 v2 路线图。
 - **无 OAuth/SSO**：分享卡片为公开链接，无 TTL 过期（v2 可加）。
-- **首屏渲染未做 SSR**：纯客户端 Alpine.js，SEO 不友好（设计取舍，PC 本地应用场景优先）。
+- **首屏渲染未做 SSR**：纯客户端原生 ES Module SPA，SEO 不友好（设计取舍，PC 本地应用场景优先）。
 - **E2E 测试默认不在 CI 主路径**：依赖 Playwright + Chromium 下载，标记在 `tests/e2e/`，可单独触发（详见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
 - **首装自动生成需 5-10 分钟**：取决于 LLM 响应速度与各源速率限制。
 - **`/daily/today` 在 08:00 之前访问**：返回 `404 2002`，前端展示「正在翻今天的墙头」加载态，等到 08:00 触发后转 ready。

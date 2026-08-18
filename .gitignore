@@ -81,3 +81,11 @@ frontend/static/vendor/*.map
 
 # ===== Docker =====
 .docker/
+
+# ===== Windows artifacts =====
+nul
+
+# ===== Local scratch / one-off experiments (kept locally, not for open source) =====
+2026-08-05*
+frontend/static/md-compare*
+backend/scripts/md_compare_experiment*.py
