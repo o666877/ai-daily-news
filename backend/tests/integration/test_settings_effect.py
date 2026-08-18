@@ -64,7 +64,7 @@ async def test_save_settings_then_generate_filters_github(client: AsyncClient, m
     # 1. PUT settings with github=false
     body = {
         "sources": {"x": True, "github": False, "reddit": True, "web": True},
-        "types": {"agent": True, "self_improve": True, "open_source": True, "tools": True},
+        "types": {"agent": True, "self_improve": True, "open_source": True, "tools": True, "commentary": True},
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 30,
         "styleMode": "standard",
@@ -96,7 +96,7 @@ async def test_save_settings_then_generate_filters_github(client: AsyncClient, m
     assert "github" not in sources_list
     assert {"x", "reddit", "web"}.issubset(set(sources_list))
     # Types all-on by default
-    assert set(types_list) == {"agent", "self_improve", "open_source", "tools"}
+    assert set(types_list) == {"agent", "self_improve", "open_source", "tools", "commentary"}
 
     # 5. NEW (US3 enforcement): github candidates must actually be excluded
     # from the persisted issue. Stub alternates X/GITHUB by idx parity, so
@@ -126,6 +126,7 @@ async def test_save_settings_then_generate_filters_by_type(client: AsyncClient, 
             "self_improve": True,
             "open_source": True,
             "tools": False,
+            "commentary": True,
         },
         "dailyPush": {"enabled": True, "time": "08:00"},
         "dailyCount": 30,

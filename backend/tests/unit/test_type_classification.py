@@ -36,6 +36,8 @@ from app.pipeline.generator import generate_issue
         ("self_improve", "self_improve"),
         ("open_source", "open_source"),
         ("tools", "tools"),
+        ("commentary", "commentary"),
+        ("Commentary", "commentary"),
         ("AGENT", "agent"),
         ("Self_Improve", "self_improve"),
         ("open-source", "open_source"),
@@ -216,10 +218,11 @@ async def test_persist_article_llm_failure_keeps_rule_type(db_session):
 
 
 @pytest.mark.asyncio
-async def test_persist_article_llm_failure_no_rule_type_defaults_tools(
+async def test_persist_article_llm_failure_no_rule_type_defaults_commentary(
     db_session,
 ):
-    """When LLM fails AND rule suggestedType is None, fall back to TOOLS."""
+    """When LLM fails AND rule suggestedType is None, fall back to commentary
+    (specs/005: commentary replaces tools as the catch-all)."""
     from app.infra import db as db_module
 
     async def _collector():
@@ -247,7 +250,7 @@ async def test_persist_article_llm_failure_no_rule_type_defaults_tools(
             )
         ).scalars().all()
     assert len(rows) == 1
-    assert rows[0].type == TypeKey.TOOLS.value
+    assert rows[0].type == TypeKey.COMMENTARY.value
 
 
 __all__ = []

@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover
 from app.config import get_settings
 
 # 4 valid type values (must match TypeKey enum in app.models.meta).
-_VALID_TYPES = {"agent", "self_improve", "open_source", "tools"}
+_VALID_TYPES = {"agent", "self_improve", "open_source", "tools", "commentary"}
 
 logger = logging.getLogger("aidaily.llm")
 
@@ -83,20 +83,23 @@ SYSTEM_PROMPT = """你是一名 AI 新闻编辑，负责把英文或混合语种
 - body (string)：2-4 段正文，单个 markdown 字符串（段落之间用空行分隔）。必须主动使用以下语法提升可读性：关键术语/项目名/公司名用 **粗体**；命令、API 名、代码标识符用 `行内代码`；提及相关项目或文档时可附 [链接](url)；并列特性可用无序列表。只允许：段落、粗体、行内代码、链接、无序列表、> 引用。禁止：标题（#）、表格、三反引号代码块、任何 HTML 标签。
 - quote (string|null)：值得保留的引用，必须为中文；若原文非中文请翻译；无可引用则填 null。
 - points (string[])：3-5 条要点，每条不超过 60 个汉字。
-- type (string)：文章类型，必须是以下 4 个值之一："agent" / "self_improve" / "open_source" / "tools"。判定标准如下，**若不确定，优先选 "tools"**（tools 是兜底类，纯新闻 / 行业事件 / 安全研究都归此）：
+- type (string)：文章类型，必须是以下 5 个值之一："agent" / "self_improve" / "open_source" / "tools" / "commentary"。判定标准如下，**若不确定，优先选 "commentary"**（commentary 是兜底类，纯新闻 / 行业事件 / 安全研究 / 观点评论都归此）：
   - "agent"：AI 助手产品、agent 框架、agent 评测基准、对话能力本身（autogen、langgraph、MCP、Claude/GPT 对话能力、agent benchmark）。
     例：「LangGraph 发布 1.0，正式支持多 agent 协作」
-    反例：「Karpathy 评论 agent 能力被低估」→ 这种观点/评论应归 "tools"（行业观点）
+    反例：「Karpathy 评论 agent 能力被低估」→ 这种观点/评论应归 "commentary"
   - "self_improve"：**仅限**模型自身的训练 / 微调 / RLHF / 持续学习 / 记忆机制 / agent 自进化的方法或论文。
     例：「论文：测试时通过记忆与持续学习提升 agent 表现」
-    反例（**不要归此**）：思维链提取攻击、模型安全/隐私漏洞研究、对模型内部机制的分析揭秘 → 这类关于"安全/隐私/破解"的研究归 "tools"。
+    反例（**不要归此**）：思维链提取攻击、模型安全/隐私漏洞研究、对模型内部机制的分析揭秘 → 这类关于"安全/隐私/破解"的研究归 "commentary"。
   - "open_source"：**仅限**有明确开源动作的内容 —— 新模型/数据集/工具发布并开放权重或源码、GitHub 仓库介绍、Apache/MIT 协议公告。
     例：「Meta 开源 Muse Glimmer，Apache 2.0 协议」
-    反例（**不要归此**）：仅仅是讨论某个开源项目、教程/课程/科普视频、闭源模型新版本发布 → 归 "tools" 或对应技术类。
+    反例（**不要归此**）：仅仅是讨论某个开源项目、教程/课程/科普视频、闭源模型新版本发布 → 归 "commentary" 或对应技术类。
     加权规则：**来源为 GitHub 仓库的条目默认归 "open_source"**，除非其内容核心是对 agent 机制本身的深度解读。
-  - "tools"：兜底类。效率工具、产品发布（非开源）、榜单、融资、会议、行业报告、**安全/隐私/漏洞研究**、**教育/科普/课程内容**、纯新闻报道、行业观点评论。
-    例 1：「OpenAI o1 思维链遭窃取，7000 份样本泄露个人数据」
-    例 2：「Karpathy 重启 YouTube 发布『从头构建 GPT』系列」
+  - "tools"：**仅限**工具与实用资源 —— 效率工具、库/框架/SDK/插件（非开源发布亦算）、教程/课程/科普、实操指南、最佳实践。
+    例 1：「Karpathy 重启 YouTube 发布『从头构建 GPT』系列」
+    例 2：「上下文工程实战：通过压缩、持久化与检索控制成本」
+  - "commentary"：兜底类。观点 / 评论 / 争议 / 人物言论 / 行业讨论、纯新闻报道、行业事件、榜单、融资、会议、行业报告、安全/隐私/漏洞研究。
+    例 1：「LeCun 驳斥 Amodei：监管倡导实为监管俘获」
+    例 2：「OpenAI o1 思维链遭窃取，7000 份样本泄露个人数据」
     例 3：「YC W25 榜单公布，三家 AI 公司入选」
 
 【评分与去重信号字段】(可选，缺失可置 null)

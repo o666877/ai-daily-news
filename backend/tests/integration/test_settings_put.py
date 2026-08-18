@@ -13,7 +13,7 @@ AUTH = {"Authorization": "Bearer test-bearer-token"}
 
 VALID_BODY = {
     "sources": {"x": True, "github": False, "reddit": True, "web": True},
-    "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True},
+    "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True, "commentary": True},
     "dailyPush": {"enabled": True, "time": "09:30"},
     "dailyCount": 20,
     "styleMode": "standard",
@@ -89,7 +89,7 @@ async def test_put_settings_missing_source_key_returns_1005(client: AsyncClient)
 async def test_put_settings_missing_type_key_returns_1005(client: AsyncClient):
     body = {
         "sources": VALID_BODY["sources"],
-        "types": {"agent": True, "self_improve": True, "open_source": True},  # missing tools
+        "types": {"agent": True, "self_improve": True, "open_source": True},  # missing tools + commentary
         "dailyPush": VALID_BODY["dailyPush"],
     }
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
@@ -119,6 +119,28 @@ async def test_put_settings_non_boolean_returns_1005(client: AsyncClient):
     res = await client.put("/api/v1/settings", json=body, headers=AUTH)
     assert res.status_code == 422, res.text
     assert res.json()["code"] == 1005
+
+
+@pytest.mark.asyncio
+async def test_put_settings_can_disable_commentary_and_sticks(client: AsyncClient):
+    """specs/005: commentary is a real toggle — disabled survives GET (the
+    missing-key merge must default missing keys True, never override False)."""
+    body = {
+        "sources": VALID_BODY["sources"],
+        "types": {
+            "agent": True, "self_improve": True, "open_source": True,
+            "tools": True, "commentary": False,
+        },
+        "dailyPush": VALID_BODY["dailyPush"],
+        "dailyCount": 20,
+        "styleMode": "standard",
+    }
+    res = await client.put("/api/v1/settings", json=body, headers=AUTH)
+    assert res.status_code == 200, res.text
+    assert res.json()["types"]["commentary"] is False
+
+    res2 = await client.get("/api/v1/settings", headers=AUTH)
+    assert res2.json()["types"]["commentary"] is False
 
 
 @pytest.mark.asyncio

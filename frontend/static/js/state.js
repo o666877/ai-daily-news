@@ -13,7 +13,8 @@ var TYPE_NAMES = {
   "agent": "Agent / 智能体",
   "self-improve": "持续学习 / 自我进化",
   "open-source": "开源项目",
-  "tools": "工具与效率"
+  "tools": "工具与效率",
+  "commentary": "观点时评"
 };
 
 /* 阅读密度档位 (T042) */
@@ -35,7 +36,7 @@ var STYLE_FIELDS = {
 var state = {
   filters: { type: "all", src: "all" },
   toggles: { x: true, github: true, reddit: true, web: true,
-              agent: true, "self-improve": true, "open-source": true, tools: true, dailyPush: true },
+              agent: true, "self-improve": true, "open-source": true, tools: true, commentary: true, dailyPush: true },
   selectedId: null,
   currentIssue: null,
   articles: [],

@@ -88,7 +88,7 @@ function readTogglesFromUI() {
 
 function syncTogglesFromSettings(s) {
   state.toggles.x = !!s.sources.x; state.toggles.github = !!s.sources.github; state.toggles.reddit = !!s.sources.reddit; state.toggles.web = !!s.sources.web;
-  state.toggles.agent = !!s.types.agent; state.toggles["self-improve"] = !!s.types.self_improve; state.toggles["open-source"] = !!s.types.open_source; state.toggles.tools = !!s.types.tools;
+  state.toggles.agent = !!s.types.agent; state.toggles["self-improve"] = !!s.types.self_improve; state.toggles["open-source"] = !!s.types.open_source; state.toggles.tools = !!s.types.tools; state.toggles.commentary = !!s.types.commentary;
   state.toggles.dailyPush = !!s.dailyPush.enabled;
   state.styleMode = s.styleMode || 'standard';
   state.currentStyle = null;
@@ -115,7 +115,7 @@ function handleApplySettings() {
   readTogglesFromUI();
   var body = {
     sources: { x: state.toggles.x, github: state.toggles.github, reddit: state.toggles.reddit, web: state.toggles.web },
-    types: { agent: state.toggles.agent, self_improve: state.toggles["self-improve"], open_source: state.toggles["open-source"], tools: state.toggles.tools },
+    types: { agent: state.toggles.agent, self_improve: state.toggles["self-improve"], open_source: state.toggles["open-source"], tools: state.toggles.tools, commentary: state.toggles.commentary },
     dailyPush: { enabled: state.toggles.dailyPush, time: "08:00" },
     styleMode: state.styleMode || 'standard'
   };

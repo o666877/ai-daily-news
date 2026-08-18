@@ -9,7 +9,7 @@ from httpx import AsyncClient
 AUTH = {"Authorization": "Bearer test-bearer-token"}
 
 EXPECTED_SOURCE_KEYS = {"x", "github", "reddit", "web"}
-EXPECTED_TYPE_KEYS = {"agent", "self_improve", "open_source", "tools"}
+EXPECTED_TYPE_KEYS = {"agent", "self_improve", "open_source", "tools", "commentary"}
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_get_settings_returns_default_payload(client: AsyncClient):
     assert res.status_code == 200, res.text
     body = res.json()
 
-    # 4 source keys + 4 type keys
+    # 4 source keys + 5 type keys
     assert set(body["sources"].keys()) == EXPECTED_SOURCE_KEYS
     assert set(body["types"].keys()) == EXPECTED_TYPE_KEYS
     # All bool values (default-on)
@@ -81,7 +81,7 @@ async def test_get_settings_includes_style_mode_default_standard(client: AsyncCl
 async def test_get_settings_reflects_put_daily_count_change(client: AsyncClient) -> None:
     put_body = {
         "sources": {"x": True, "github": False, "reddit": True, "web": True},
-        "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True},
+        "types": {"agent": True, "self_improve": True, "open_source": False, "tools": True, "commentary": True},
         "dailyPush": {"enabled": True, "time": "09:30"},
         "dailyCount": 10,
         "styleMode": "detailed",

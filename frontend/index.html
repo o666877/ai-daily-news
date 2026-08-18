@@ -189,6 +189,7 @@
   .tag[data-type="self-improve"] { color: var(--ok); background: color-mix(in oklab, var(--ok) 12%, transparent); border-color: transparent; }
   .tag[data-type="open-source"] { color: var(--warn); background: color-mix(in oklab, var(--warn) 14%, transparent); border-color: transparent; }
   .tag[data-type="tools"] { color: var(--ink); background: var(--surface-2); }
+  .tag[data-type="commentary"] { color: var(--danger-ink, var(--ink)); background: var(--surface-2); }
   .src-name { display: inline-flex; align-items: center; gap: 5px; }
   .src-name svg { width: 13px; height: 13px; flex: none; }
   .time { font-family: var(--font-mono); font-size: 11px; }
@@ -465,6 +466,7 @@
         <button class="chip" data-filter="self-improve" aria-pressed="false"><span class="chip-dot" aria-hidden="true"></span>持续学习</button>
         <button class="chip" data-filter="open-source" aria-pressed="false"><span class="chip-dot" aria-hidden="true"></span>开源</button>
         <button class="chip" data-filter="tools" aria-pressed="false"><span class="chip-dot" aria-hidden="true"></span>工具效率</button>
+        <button class="chip" data-filter="commentary" aria-pressed="false"><span class="chip-dot" aria-hidden="true"></span>观点时评</button>
       </div>
     </div>
 
@@ -559,6 +561,10 @@
       <div class="switch-row">
         <div class="switch-label">工具与效率<small>生产力神器测评现场</small></div>
         <label class="switch"><input type="checkbox" data-type-toggle="tools" checked><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">观点时评<small>KOL 唇枪舌剑第一现场</small></div>
+        <label class="switch"><input type="checkbox" data-type-toggle="commentary" checked><span class="track"></span><span class="thumb"></span></label>
       </div>
     </section>
     <section class="settings-section">

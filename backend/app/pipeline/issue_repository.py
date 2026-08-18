@@ -25,19 +25,27 @@ logger = logging.getLogger("aidaily.generator")
 MUST_READ_TOP_N = 3
 
 
+def _rule_type(raw: RawItem) -> str:
+    """Rule-derived type; commentary is the last-resort fallback (specs/005)."""
+    return (
+        raw.suggestedType.value
+        if raw.suggestedType
+        else TypeKey.COMMENTARY.value
+    )
+
+
 def effective_type(raw: RawItem, summary_fields: Any) -> tuple[str, str]:
     """Return (effective_type, basis) for a (raw, summary_fields) pair.
 
     effective_type is what will be persisted to articles.type:
     - LLM-classified type when valid ('llm')
-    - Otherwise rule-derived suggestedType, or TOOLS as last resort ('rule')
+    - Otherwise rule-derived suggestedType, or commentary as last
+      resort ('rule')
 
     Shared by the settings filter, issue selection, and persist_article so
     all three agree on the persisted type.
     """
-    rule_type = (
-        raw.suggestedType.value if raw.suggestedType else TypeKey.TOOLS.value
-    )
+    rule_type = _rule_type(raw)
     llm_type_raw = getattr(summary_fields, "llm_type", None)
     if isinstance(llm_type_raw, str) and llm_type_raw in {
         t.value for t in TypeKey
@@ -68,9 +76,7 @@ async def persist_article(
     article_title = (llm_title or raw.title)[:200]
     article_type, basis = effective_type(raw, summary_fields)
     if basis == "llm":
-        rule_type = (
-            raw.suggestedType.value if raw.suggestedType else TypeKey.TOOLS.value
-        )
+        rule_type = _rule_type(raw)
         if article_type != rule_type:
             logger.info(
                 "type_overridden_by_llm",
@@ -107,6 +113,48 @@ async def persist_article(
         session.add(score_orm)
 
     return orm
+
+
+async def recent_published_keys(
+    session: AsyncSession, before_issue_id: str, issues: int = 3
+) -> tuple[set[str], set[str]]:
+    """Cross-issue dedup keys (specs/005): (source_urls, topic_ids) published
+    in the `issues` most recent issues strictly before `before_issue_id`.
+
+    issue_id is the YYYYMMDD date string, so lexicographic < orders
+    chronologically — the invariant this query depends on.
+
+    The 3-issue window aligns with the 72h collection window: a post stays a
+    candidate for at most 3 daily issues, so one appearance excludes the rest.
+    topic_ids come from the article_scores join (1:1 rows, indexed).
+    """
+    from sqlalchemy import select as sa_select
+
+    issue_rows = await session.execute(
+        sa_select(ArticleORM.issue_id)
+        .where(ArticleORM.issue_id < before_issue_id)
+        .distinct()
+        .order_by(ArticleORM.issue_id.desc())
+        .limit(issues)
+    )
+    recent = [row[0] for row in issue_rows.all()]
+    if not recent:
+        return set(), set()
+
+    url_rows = await session.execute(
+        sa_select(ArticleORM.source_url).where(ArticleORM.issue_id.in_(recent))
+    )
+    urls = {row[0] for row in url_rows.all() if row[0]}
+
+    from app.models.article_score import ArticleScoreORM
+
+    topic_rows = await session.execute(
+        sa_select(ArticleScoreORM.topic_id)
+        .join(ArticleORM, ArticleORM.id == ArticleScoreORM.article_id)
+        .where(ArticleORM.issue_id.in_(recent))
+    )
+    topics = {row[0] for row in topic_rows.all() if row[0]}
+    return urls, topics
 
 
 def finalize_issue(issue_orm: DailyIssueORM, *, failed: bool) -> DailyIssueORM:
@@ -166,4 +214,5 @@ __all__ = [
     "effective_type",
     "finalize_issue",
     "persist_article",
+    "recent_published_keys",
 ]

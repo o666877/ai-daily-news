@@ -15,6 +15,7 @@ idx ASC), return first n. If len(items) <= n, return all items (no padding).
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 
@@ -213,6 +214,56 @@ def dedup_candidates(items: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Cross-issue exclusion (specs/005 part 1)
+# ---------------------------------------------------------------------------
+
+
+def exclude_published(
+    items: list[dict],
+    published_urls: set[str] | list[str],
+    published_topics: set[str] | list[str],
+) -> list[dict]:
+    """Drop candidates already published in recent issues (hard exclusion).
+
+    Matches on normalized URL or topic_id (separator-insensitive + long-prefix
+    merged via the same canonicalization as the within-issue topic layer).
+    Topic matching is deliberately exact-or-prefix — cross-issue we prefer
+    missing a duplicate over killing a distinct-but-similar story. The fold
+    is not transitive (candidate → intermediate candidate → published base
+    is not caught); that tolerance is intentional.
+
+    opinion_fingerprint intentionally does NOT participate: its semantics are
+    same-issue opinion merging, and cross-issue it would kill follow-ups.
+    """
+    pub_urls = {_normalize_url(u) for u in published_urls if u and u.strip()}
+    pub_topic_raw = {_norm_key(t) for t in published_topics if t and t.strip()}
+    # Canonicalize published topics UNION candidate topics so a candidate
+    # carrying a long-published base as prefix folds onto it (and vice versa).
+    candidate_topics = {t for t in map(_get_topic, items) if t}
+    canon = _canonicalize_topics(pub_topic_raw | candidate_topics)
+    pub_topics = {canon[p] for p in pub_topic_raw}
+
+    kept: list[dict] = []
+    excluded = 0
+    for item in items:
+        url = _get_url(item)
+        if url and url in pub_urls:
+            excluded += 1
+            continue
+        topic = _get_topic(item)
+        if topic and canon[topic] in pub_topics:
+            excluded += 1
+            continue
+        kept.append(item)
+    if excluded:
+        logging.getLogger("aidaily.dedup").info(
+            "cross_issue_excluded",
+            extra={"excluded": excluded, "kept": len(kept)},
+        )
+    return kept
+
+
+# ---------------------------------------------------------------------------
 # Top-N truncate
 # ---------------------------------------------------------------------------
 
@@ -286,6 +337,7 @@ __all__ = [
     "dedup_by_opinion",
     "dedup_by_topic",
     "dedup_by_url",
+    "exclude_published",
     "truncate_diverse",
     "truncate_top_n",
 ]

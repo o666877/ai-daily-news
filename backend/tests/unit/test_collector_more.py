@@ -97,17 +97,19 @@ def test_classify_type_tools_keywords():
     assert classify_type(_raw(SourceKey.WEB, "https://x", raw="CLI tool for productivity")) == TypeKey.TOOLS
 
 
-def test_classify_type_default_to_tools():
-    """No keywords match → TOOLS (sensible default)."""
-    assert classify_type(_raw(SourceKey.WEB, "https://x", raw="some random unrelated text")) == TypeKey.TOOLS
+def test_classify_type_fallback_is_source_aware():
+    """No keyword hit → GitHub lands open_source, others commentary (specs/005)."""
+    assert classify_type(_raw(SourceKey.GITHUB, "https://github.com/x", raw="some random unrelated text")) == TypeKey.OPEN_SOURCE
+    assert classify_type(_raw(SourceKey.X, "https://x.com/1", raw="some random unrelated text")) == TypeKey.COMMENTARY
+    assert classify_type(_raw(SourceKey.REDDIT, "https://reddit.com/1", raw="some random unrelated text")) == TypeKey.COMMENTARY
+    assert classify_type(_raw(SourceKey.WEB, "https://x", raw="some random unrelated text")) == TypeKey.COMMENTARY
 
 
-def test_classify_type_uses_suggested_when_present():
-    """If RawItem.suggestedType set, classifier still applies."""
-    item = _raw(SourceKey.WEB, "https://x", raw="random text")
-    item = item.model_copy(update={"suggestedType": TypeKey.AGENT})
-    # Classifier still runs; default is TOOLS if no match
-    assert classify_type(item) == TypeKey.TOOLS
+def test_classify_type_tools_never_a_fallback():
+    """tools only ever comes from an explicit keyword hit — a keyword-miss on
+    any source must not produce TOOLS (specs/005)."""
+    for src in SourceKey:
+        assert classify_type(_raw(src, "https://x", raw="zzz qqq vvv")) != TypeKey.TOOLS
 
 
 # ---------- CLASSIFY_KEYWORDS structure ----------
@@ -143,12 +145,10 @@ async def test_collect_all_combines_sources(monkeypatch):
 
     items = await collect_all()
     assert len(items) == 4
-    # Verify each was classified (or default TOOLS)
+    # Verify each was classified (keyword hit or source-aware fallback)
     for it in items:
         assert it.suggestedType is not None
-        assert it.suggestedType in {
-            TypeKey.AGENT, TypeKey.SELF_IMPROVE, TypeKey.OPEN_SOURCE, TypeKey.TOOLS
-        }
+        assert it.suggestedType in set(TypeKey)
 
 
 @pytest.mark.asyncio

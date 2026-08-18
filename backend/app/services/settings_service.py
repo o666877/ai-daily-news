@@ -19,6 +19,7 @@ from app.models.settings import (
     SettingsORM,
     SettingsOut,
     default_settings,
+    merged_bool_map,
 )
 
 
@@ -33,12 +34,10 @@ def compute_effective_at(now: datetime | None = None) -> str:
 
 
 def _row_to_out(orm: SettingsORM) -> SettingsOut:
-    sources = dict(orm.sources or {})
-    types = dict(orm.types or {})
     dp = dict(orm.daily_push or {})
     return SettingsOut(
-        sources={k: bool(v) for k, v in sources.items()},
-        types={k: bool(v) for k, v in types.items()},
+        sources=merged_bool_map(orm.sources, SOURCE_KEYS),
+        types=merged_bool_map(orm.types, TYPE_KEYS),
         dailyPush=DailyPush(
             enabled=bool(dp.get("enabled", True)),
             time=str(dp.get("time", "08:00")),
@@ -111,8 +110,8 @@ class SettingsService:
     async def get_current_filters(self) -> tuple[list[str], list[str]]:
         """Return keys where bool value is True (used by pipeline)."""
         orm = await self._get_row()
-        sources = [k for k in SOURCE_KEYS if bool((orm.sources or {}).get(k))]
-        types = [k for k in TYPE_KEYS if bool((orm.types or {}).get(k))]
+        sources = [k for k, v in merged_bool_map(orm.sources, SOURCE_KEYS).items() if v]
+        types = [k for k, v in merged_bool_map(orm.types, TYPE_KEYS).items() if v]
         return sources, types
 
 

@@ -44,7 +44,7 @@ async def test_daily_today_200_ready(client: AsyncClient, ready_issue_with_artic
     assert set(first.keys()) == expected_keys
     # summary has both byType and bySource with all 4 keys
     assert set(body["summary"]["byType"].keys()) == {
-        "agent", "self_improve", "open_source", "tools",
+        "agent", "self_improve", "open_source", "tools", "commentary",
     }
     assert set(body["summary"]["bySource"].keys()) == {"x", "github", "reddit", "web"}
 

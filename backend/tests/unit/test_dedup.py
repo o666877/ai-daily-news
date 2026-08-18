@@ -15,6 +15,7 @@ from app.pipeline.dedup import (
     dedup_by_opinion,
     dedup_by_topic,
     dedup_by_url,
+    exclude_published,
     truncate_diverse,
     truncate_top_n,
 )
@@ -339,6 +340,53 @@ def test_truncate_diverse_preserves_score_order_within_selection() -> None:
 def test_truncate_diverse_empty_and_zero() -> None:
     assert truncate_diverse([], 10) == []
     assert truncate_diverse([_titem(1, 50, "agent")], 0) == []
+
+
+# ---------------------------------------------------------------------------
+# Cross-issue exclusion (specs/005 part 1)
+# ---------------------------------------------------------------------------
+
+
+def test_exclude_published_url_hit_removed() -> None:
+    """Candidate URL already published in a recent issue → dropped."""
+    items = [
+        _item(source_url="https://example.com/seen?utm=x", composite_score=90, idx=1),
+        _item(source_url="https://example.com/fresh", composite_score=80, idx=2),
+    ]
+    result = exclude_published(items, ["https://example.com/seen/"], [])
+    assert [it["idx"] for it in result] == [2]
+
+
+def test_exclude_published_topic_exact_and_prefix_removed() -> None:
+    """Same topic_id (exact or long-prefix equivalent) → dropped."""
+    items = [
+        _item(source_url="https://a.com/1", composite_score=90, topic_id="deepseek-harness", idx=1),
+        _item(source_url="https://b.com/2", composite_score=85, topic_id="DeepSeek-Harness-DSH-Handbook", idx=2),
+        _item(source_url="https://c.com/3", composite_score=80, topic_id="other-topic", idx=3),
+    ]
+    result = exclude_published(items, [], ["deepseek-harness"])
+    assert [it["idx"] for it in result] == [3]
+
+
+def test_exclude_published_short_prefix_not_merged() -> None:
+    """Short keys (< _TOPIC_PREFIX_MIN) must not prefix-merge: 'openai' vs
+    'openaiswarm' stay distinct — only exact equality excludes."""
+    items = [
+        _item(source_url="https://a.com/1", composite_score=90, topic_id="openaiswarm", idx=1),
+    ]
+    result = exclude_published(items, [], ["openai"])
+    assert [it["idx"] for it in result] == [1]
+
+
+def test_exclude_published_empty_keys_pass_through() -> None:
+    """No published keys → nothing removed; missing topic candidates safe."""
+    items = [
+        _item(source_url="https://a.com/1", composite_score=90, idx=1),
+        _item(source_url="https://b.com/2", composite_score=80, topic_id=None, idx=2),
+    ]
+    result = exclude_published(items, [], [])
+    assert [it["idx"] for it in result] == [1, 2]
+
 
 
 def test_truncate_diverse_typeless_items_pass_through() -> None:

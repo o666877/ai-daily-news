@@ -24,14 +24,16 @@ from app.infra.db import get_session_factory
 from app.infra.errors import IssueGeneratingError
 from app.models.article import RawItem
 from app.models.daily_issue import DailyIssueORM, IssueStatus
-from app.models.meta import SourceKey, TypeKey
+from app.models.meta import SOURCE_KEYS, TYPE_KEYS, SourceKey, TypeKey
+from app.models.settings import merged_bool_map
 from app.pipeline import summarizer
 from app.pipeline.collector import collect_all
-from app.pipeline.dedup import dedup_candidates, truncate_diverse
+from app.pipeline.dedup import dedup_candidates, exclude_published, truncate_diverse
 from app.pipeline.issue_repository import (
     effective_type,
     finalize_issue,
     persist_article,
+    recent_published_keys,
 )
 
 logger = logging.getLogger("aidaily.generator")
@@ -42,6 +44,11 @@ logger = logging.getLogger("aidaily.generator")
 # score a genuinely useful community item earns (~52) while absorbing the
 # ±5 LLM scoring variance around junk (~41).
 ADMISSION_FLOOR = 45
+
+# Cross-issue dedup lookback (specs/005): the 72h collection window spans at
+# most 3 daily issues, so one appearance anywhere in the last 3 issues
+# excludes a candidate from all later issues — no more, no less.
+CROSS_ISSUE_LOOKBACK = 3
 
 
 def _issue_id(date: datetime) -> str:
@@ -75,8 +82,12 @@ async def _load_settings_snapshot(session: AsyncSession) -> dict[str, Any]:
     sources_dict = dict(orm.sources or {})
     types_dict = dict(orm.types or {})
     return {
-        "sources": [k for k, v in sources_dict.items() if bool(v)],
-        "types": [k for k, v in types_dict.items() if bool(v)],
+        "sources": [
+            k for k, v in merged_bool_map(sources_dict, SOURCE_KEYS).items() if v
+        ],
+        "types": [
+            k for k, v in merged_bool_map(types_dict, TYPE_KEYS).items() if v
+        ],
         "daily_count": int(getattr(orm, "daily_count", 30) or 30),
     }
 
@@ -261,9 +272,17 @@ async def generate_issue(
             issue_id=issue_id,
         )
 
+        # specs/005: cross-issue exclusion — candidates already published in
+        # the last CROSS_ISSUE_LOOKBACK issues are dropped before within-issue
+        # dedup. Regeneration is safe: the issue's rows are deleted first.
+        published_urls, published_topics = await recent_published_keys(
+            session, before_issue_id=issue_id, issues=CROSS_ISSUE_LOOKBACK
+        )
+
         # US2 T030: three-layer dedup → top-N truncate → persist survivors.
         selected: list[tuple[RawItem, Any]] = _select_for_issue(
-            candidates, daily_count
+            candidates, daily_count,
+            published_urls=published_urls, published_topics=published_topics,
         )
         for idx, (raw, summary_fields) in enumerate(selected, start=1):
             await persist_article(session, issue_id, idx, raw, summary_fields)
@@ -292,8 +311,14 @@ async def generate_issue(
 def _select_for_issue(
     candidates: list[tuple[RawItem, Any]],
     daily_count: int,
+    *,
+    published_urls: set[str] | None = None,
+    published_topics: set[str] | None = None,
 ) -> list[tuple[RawItem, Any]]:
     """Apply US2 dedup + diversity-aware truncate to summarized candidates.
+
+    Cross-issue exclusion (specs/005) runs first: candidates whose URL or
+    topic_id was published in the lookback window are dropped outright.
 
     Returns the (raw, summary_fields) pairs that should be persisted under the
     current issue_id, in display order (highest composite_score first, with a
@@ -319,6 +344,8 @@ def _select_for_issue(
                 "type": eff_type_value,
             }
         )
+    if published_urls or published_topics:
+        items = exclude_published(items, published_urls or set(), published_topics or set())
     deduped = dedup_candidates(items)
     admitted = [it for it in deduped if it["compositeScore"] >= ADMISSION_FLOOR]
     dropped = len(deduped) - len(admitted)

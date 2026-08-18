@@ -1,8 +1,8 @@
 """Metadata: Source + Type enums and `/meta` response schema.
 
-4 fixed source keys + 4 fixed type keys. Sourced from data-model.md §3 §4.
-These constants are the single source of truth — never hardcode in API or
-frontend.
+4 fixed source keys + 5 type keys (commentary added in specs/005 as the
+opinion/news catch-all; tools reverted to pure tooling). These constants are
+the single source of truth — never hardcode in API or frontend.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ class TypeKey(str, Enum):
     SELF_IMPROVE = "self_improve"
     OPEN_SOURCE = "open_source"
     TOOLS = "tools"
+    COMMENTARY = "commentary"
 
 
 class Source(CamelModel):
@@ -91,6 +92,7 @@ TYPES: list[Type] = [
     Type(key=TypeKey.SELF_IMPROVE, name="持续学习 / 自我进化", shortName="持续学习"),
     Type(key=TypeKey.OPEN_SOURCE, name="开源项目", shortName="开源"),
     Type(key=TypeKey.TOOLS, name="工具与效率", shortName="工具效率"),
+    Type(key=TypeKey.COMMENTARY, name="观点时评", shortName="观点"),
 ]
 
 SOURCE_KEYS: list[str] = [s.key.value for s in SOURCES]

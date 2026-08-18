@@ -109,6 +109,22 @@ def default_settings() -> dict:
     }
 
 
+def merged_bool_map(
+    saved: dict | None, valid_keys: list[str] | tuple[str, ...]
+) -> dict[str, bool]:
+    """Saved bool map with missing keys filled True (specs/005).
+
+    Rows saved before a source/type existed lack its key; reading them
+    raw treats the new key as disabled, silently filtering all its content.
+    Missing → True (new categories default on); unknown keys dropped.
+    """
+    merged = {k: True for k in valid_keys}
+    for k, v in dict(saved or {}).items():
+        if k in merged:
+            merged[k] = bool(v)
+    return merged
+
+
 __all__ = [
     "DAILY_COUNT_VALUES",
     "STYLE_MODE_VALUES",
@@ -117,4 +133,5 @@ __all__ = [
     "SettingsOut",
     "SettingsIn",
     "default_settings",
+    "merged_bool_map",
 ]

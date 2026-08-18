@@ -9,7 +9,7 @@ from httpx import AsyncClient
 AUTH = {"Authorization": "Bearer test-bearer-token"}
 
 EXPECTED_SOURCE_KEYS = {"x", "github", "reddit", "web"}
-EXPECTED_TYPE_KEYS = {"agent", "self_improve", "open_source", "tools"}
+EXPECTED_TYPE_KEYS = {"agent", "self_improve", "open_source", "tools", "commentary"}
 
 
 @pytest.mark.asyncio
@@ -37,7 +37,7 @@ async def test_reset_response_identical_to_first_get(client: AsyncClient):
     # Mutate first via PUT so reset has visible effect
     custom = {
         "sources": {"x": False, "github": False, "reddit": False, "web": False},
-        "types": {"agent": False, "self_improve": False, "open_source": False, "tools": False},
+        "types": {"agent": False, "self_improve": False, "open_source": False, "tools": False, "commentary": False},
         "dailyPush": {"enabled": False, "time": "12:34"},
     }
     await client.put("/api/v1/settings", json=custom, headers=AUTH)

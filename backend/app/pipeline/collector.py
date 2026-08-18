@@ -58,14 +58,28 @@ CLASSIFY_KEYWORDS: dict[TypeKey, list[str]] = {
     ],
 }
 
+# Fallback when no keyword hits, keyed by source (specs/005).
+_SOURCE_FALLBACK_TYPE: dict[SourceKey, TypeKey] = {
+    SourceKey.GITHUB: TypeKey.OPEN_SOURCE,
+    SourceKey.X: TypeKey.COMMENTARY,
+    SourceKey.REDDIT: TypeKey.COMMENTARY,
+    SourceKey.WEB: TypeKey.COMMENTARY,
+}
+
 
 def classify_type(item: RawItem) -> TypeKey:
-    """Rule-based type classifier. Falls back to TOOLS."""
+    """Rule-based type classifier with source-aware fallback (specs/005).
+
+    Keyword hits keep priority. Misses fall back by source: GitHub →
+    open_source (repo items are open-source by nature), everything else →
+    commentary (the opinion/news catch-all). tools is never a fallback —
+    it only ever comes from an explicit keyword hit or LLM verdict.
+    """
     text = f"{item.title} {item.rawText}".lower()
     for key, keywords in CLASSIFY_KEYWORDS.items():
         if any(kw in text for kw in keywords):
             return key
-    return TypeKey.TOOLS
+    return _SOURCE_FALLBACK_TYPE.get(item.sourceKey, TypeKey.COMMENTARY)
 
 
 def dedup_by_url(items: list[RawItem]) -> list[RawItem]:
