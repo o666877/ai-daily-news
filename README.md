@@ -24,7 +24,7 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 |---|---|
 | `x` (X / Twitter via twitter-cli) | `agent` (Agent / 智能体) |
 | `github` (GitHub trending + maintainer events) | `self_improve` (持续学习 / 自我进化) |
-| `reddit` (PRAW: MachineLearning, LocalLLaMA, ...) | `open_source` (开源项目) |
+| `reddit` (opencli 浏览器桥接 + Atom 兜底) | `open_source` (开源项目) |
 | `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率) |
 | | `commentary` (观点时评) |
 
@@ -67,12 +67,13 @@ cp ../.env.example ../.env
 # 编辑 .env，至少填入 AIDAILY_LLM_API_KEY
 ```
 
-最小必填项：
+最小必填项只有 LLM Key：
 
 ```dotenv
 AIDAILY_LLM_API_KEY=sk-ant-...         # Anthropic 或兼容网关 API Key
-AIDAILY_REDDIT_UA=ai-daily/1.0 by your_username  # Reddit 抓取需要
 ```
+
+X 源（twitter-cli）、Reddit 桥接（opencli）、GitHub PAT 均为可选增强，未配置时对应通道降级或跳过。
 
 `AIDAILY_BEARER_TOKEN` 缺失时，后端首次启动会自动生成并打印到 stdout 一次。
 
@@ -161,7 +162,9 @@ docker compose up -d
 | `AIDAILY_TWITTER_BIN` | PATH 自动探测 | `twitter` CLI 可执行文件路径 |
 | `AIDAILY_X_ACCOUNTS` | 内置 28 KOL | 逗号分隔的 X 用户名列表 |
 | `AIDAILY_GITHUB_TOKEN` | — | GitHub PAT，提升速率限制（缺失走 trending HTML） |
-| `AIDAILY_REDDIT_UA` | `ai-daily/1.0 by anonymous` | Reddit API user-agent（建议覆盖） |
+| `AIDAILY_OPENCLI_BIN` | PATH 自动探测 | `opencli` CLI 路径（Reddit 桥接通道，见 [Reddit 源](#reddit-源opencli-桥接)） |
+| `AIDAILY_REDDIT_DISABLE_OPENCLI` | `false` | `1` = 跳过 opencli 桥接，直接走 Atom 兜底 |
+| `AIDAILY_REDDIT_UA` | `ai-daily/1.0 by anonymous` | Atom 兜底通道的 HTTP User-Agent（建议覆盖） |
 
 ---
 
@@ -278,8 +281,15 @@ open "http://127.0.0.1:8000/share/shr_9f2c4a71"
 
 ## X (Twitter) 源配置
 
-X 源通过本地 `twitter` CLI（twitter-cli）子进程抓取：并发执行
+X 源通过本地 `twitter` CLI 子进程抓取：并发执行
 `twitter user-posts <account> -n 20 --json`，遍历账号列表，单账号失败重试一次后跳过并记 ERROR 日志。无需 RSSHub、无需官方 X API。
+
+### 安装
+
+```bash
+pip install twitter-cli   # 提供 `twitter` 命令（github.com/jackwener/twitter-cli）
+twitter --version         # 验证安装
+```
 
 ### 鉴权（二选一）
 
@@ -305,6 +315,33 @@ AIDAILY_X_ACCOUNTS=karpathy,ylecun,simonw,swyx
 ### 禁用 X 源
 
 不设置 `TWITTER_AUTH_TOKEN`/`TWITTER_CT0` 且不开浏览器 Cookie，或移除 `twitter` CLI，系统即静默跳过 X 源，其余 3 源正常出刊。
+
+---
+
+## Reddit 源（opencli 桥接）
+
+Reddit 对匿名/数据中心 IP 的 `.json` API 返回 403。当前方案：**opencli 浏览器桥接优先**（借本机已登录 Chrome 会话抓取，能拿到 score / 评论数 / 正文），桥接不可用或全部 sub 失败时**自动回退匿名 Atom feed**（可用但无互动数据）。
+
+### 安装
+
+```bash
+npm install -g @jackwener/opencli   # 提供 `opencli` 命令
+opencli doctor                      # 验证安装与浏览器连接
+```
+
+### 使用条件
+
+- 本机 Chrome 已登录 reddit（桥接通过真实登录态绕过 IP 封锁）
+- 采集命令：`opencli reddit subreddit <sub> --sort top --time week -f json`（逐 sub 串行执行）
+
+### 环境变量
+
+| 变量 | 说明 |
+|---|---|
+| `AIDAILY_OPENCLI_BIN` | `opencli` 可执行文件路径（默认 PATH 探测，Windows 优先找 `opencli.CMD`） |
+| `AIDAILY_REDDIT_DISABLE_OPENCLI` | `1` = 跳过桥接，直接走 Atom 兜底 |
+
+> `twitter-cli` 与 `opencli` 出自同一作者（jackwener），鉴权思路一致：优先显式凭据，其次复用本机浏览器登录态。
 
 ---
 
