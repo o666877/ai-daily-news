@@ -22,7 +22,7 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 
 | Source (`src`) | Type (`type`) |
 |---|---|
-| `x` (X / Twitter via RSSHub) | `agent` (Agent / 智能体) |
+| `x` (X / Twitter via twitter-cli) | `agent` (Agent / 智能体) |
 | `github` (GitHub trending + maintainer events) | `self_improve` (持续学习 / 自我进化) |
 | `reddit` (PRAW: MachineLearning, LocalLLaMA, ...) | `open_source` (开源项目) |
 | `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率) |
@@ -36,7 +36,8 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 
 - Python 3.11.9+
 - 操作系统：Windows 11 / macOS 14+ / Ubuntu 22.04+
-- （可选）Docker：用于一键部署 + 自托管 RSSHub
+- （可选）`twitter` CLI：用于启用 X (Twitter) 源，见 [X 源配置](#x-twitter-源配置)
+- （可选）Docker：用于一键部署
 
 ### 步骤 1：克隆 + 准备环境
 
@@ -75,14 +76,20 @@ AIDAILY_REDDIT_UA=ai-daily/1.0 by your_username  # Reddit 抓取需要
 
 `AIDAILY_BEARER_TOKEN` 缺失时，后端首次启动会自动生成并打印到 stdout 一次。
 
-### 步骤 4：（可选，仅启用 X 源）启动 RSSHub
+### 步骤 4：（可选，仅启用 X 源）配置 twitter-cli
 
-```bash
-docker run -d --name rsshub -p 1200:1200 diygod/rsshub:latest
-# .env 中设置 AIDAILY_X_RSSHUB_BASE_URL=http://localhost:1200
+X 源通过本地 `twitter` CLI 子进程抓取，详见 [X (Twitter) 源配置](#x-twitter-源配置)。最小配置：
+
+```dotenv
+# .env —— 二选一：
+# a) 显式凭据（x.com Cookie 中的值）
+TWITTER_AUTH_TOKEN=...
+TWITTER_CT0=...
+# b) 复用本机浏览器登录态（Windows DPAPI）
+AIDAILY_X_ALLOW_BROWSER_COOKIES=1
 ```
 
-未部署 RSSHub 时 X 源静默跳过，其余 3 源正常出刊。
+未配置时 X 源静默跳过，其余 3 源正常出刊。
 
 ### 步骤 5：初始化数据库
 
@@ -110,7 +117,6 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```bash
 docker compose up -d
 # 后端：http://localhost:8000/
-# RSSHub：http://localhost:1200/
 ```
 
 详见 [`docker-compose.yml`](docker-compose.yml)。
@@ -150,8 +156,10 @@ docker compose up -d
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `AIDAILY_X_RSSHUB_BASE_URL` | — | RSSHub 实例 URL；为空 → X 源静默跳过 |
-| `AIDAILY_X_ACCOUNTS` | 内置 25 KOL | 逗号分隔的 X 用户名列表 |
+| `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` | — | X 源鉴权（x.com Cookie 值）；缺失且未开浏览器 Cookie → X 源静默跳过 |
+| `AIDAILY_X_ALLOW_BROWSER_COOKIES` | `false` | `1`/`true` 时复用本机浏览器 x.com 登录态 |
+| `AIDAILY_TWITTER_BIN` | PATH 自动探测 | `twitter` CLI 可执行文件路径 |
+| `AIDAILY_X_ACCOUNTS` | 内置 28 KOL | 逗号分隔的 X 用户名列表 |
 | `AIDAILY_GITHUB_TOKEN` | — | GitHub PAT，提升速率限制（缺失走 trending HTML） |
 | `AIDAILY_REDDIT_UA` | `ai-daily/1.0 by anonymous` | Reddit API user-agent（建议覆盖） |
 
@@ -268,33 +276,35 @@ open "http://127.0.0.1:8000/share/shr_9f2c4a71"
 
 ---
 
-## RSSHub 部署
+## X (Twitter) 源配置
 
-X (Twitter) 源需要自托管 RSSHub 实例（无官方 X API 假设）。
+X 源通过本地 `twitter` CLI（twitter-cli）子进程抓取：并发执行
+`twitter user-posts <account> -n 20 --json`，遍历账号列表，单账号失败重试一次后跳过并记 ERROR 日志。无需 RSSHub、无需官方 X API。
 
-### Docker 一键启动
+### 鉴权（二选一）
 
-```bash
-docker run -d --name rsshub -p 1200:1200 diygod/rsshub:latest
-```
+1. **环境变量**：设置 `TWITTER_AUTH_TOKEN` + `TWITTER_CT0`（x.com Cookie 中的 `auth_token` / `ct0`）
+2. **浏览器 Cookie**：本机浏览器已登录 x.com 时，设置 `AIDAILY_X_ALLOW_BROWSER_COOKIES=1`（Windows 经 DPAPI 读取 Chrome/Arc/Edge/Firefox/Brave Cookie 库）
 
-### 配置环境变量
+两者皆不可用时 X 源静默跳过。
+
+### 账号列表
 
 ```dotenv
-# .env
-AIDAILY_X_RSSHUB_BASE_URL=http://localhost:1200
+# .env —— 覆盖默认 KOL 列表（默认内置 28 个，见 backend/app/pipeline/defaults/x_accounts.py）
 AIDAILY_X_ACCOUNTS=karpathy,ylecun,simonw,swyx
 ```
 
-### 验证
+### 其他参数
 
-```bash
-curl -s "http://localhost:1200/twitter/user/karpathy" | head -20
-```
+| 变量 | 说明 |
+|---|---|
+| `AIDAILY_TWITTER_BIN` | `twitter` 可执行文件路径（默认 PATH 自动探测 + Windows pip --user 目录） |
+| `AIDAILY_X_RETRY_BACKOFF_S` | 单账号失败重试间隔（默认 `0.5`） |
 
 ### 禁用 X 源
 
-将 `AIDAILY_X_RSSHUB_BASE_URL` 留空（或不设置），系统启动时静默跳过 X 源，其余 3 源正常出刊。
+不设置 `TWITTER_AUTH_TOKEN`/`TWITTER_CT0` 且不开浏览器 Cookie，或移除 `twitter` CLI，系统即静默跳过 X 源，其余 3 源正常出刊。
 
 ---
 
@@ -397,7 +407,7 @@ ai-daily-news/
 
 ## 已知限制
 
-- **X 源需自托管 RSSHub**：v1.x 未集成官方 X API（成本与 OAuth 复杂度考量）；未部署时 X 源静默跳过，其余 3 源正常。
+- **X 源依赖本地 `twitter` CLI**：v1.x 未集成官方 X API（成本与 OAuth 复杂度考量）；未配置鉴权或找不到 CLI 时 X 源静默跳过，其余 3 源正常。
 - **LLM 依赖单一 provider**：当前仅支持 Anthropic 协议；OpenAI 协议支持规划在 v1.1。
 - **本地 SQLite**：单机部署；多副本水平扩展需替换为 PostgreSQL（v2 规划）。
 - **无用户体系**：单用户 Bearer token；多租户在 v2 路线图。
