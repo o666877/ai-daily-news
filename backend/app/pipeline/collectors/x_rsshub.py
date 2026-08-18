@@ -339,6 +339,8 @@ def _engagement_snapshot(tweet: dict) -> dict[str, int]:
     after the collection window, so store the three agreed keys now for
     future anchor recalibration. Missing/non-numeric values are omitted
     rather than defaulted (boundary tolerance for external output).
+    A genuine `likes: 0` IS stored: zero engagement is real signal and
+    scores 0 downstream, distinct from no data (neutral 50).
     """
     metrics = tweet.get("metrics")
     if not isinstance(metrics, dict):

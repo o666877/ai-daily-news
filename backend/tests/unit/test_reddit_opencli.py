@@ -268,6 +268,24 @@ async def test_opencli_post_without_title_or_url_skipped(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_opencli_bool_counts_rejected(monkeypatch):
+    """`comments: True` (bool is an int subclass) must not land in extra."""
+    _patch_settings(monkeypatch)
+    import app.pipeline.collectors.reddit_opencli as oc
+
+    boolean_post = _post_dict(post_id="bt")
+    boolean_post["comments"] = True
+    boolean_post["score"] = False
+    _install_opencli_stub(monkeypatch, {"S": {"posts": [boolean_post]}})
+    monkeypatch.setattr(oc.shutil, "which", lambda _: "opencli")
+
+    items = await oc.collect_via_opencli(["S"])
+    assert len(items) == 1
+    assert "num_comments" not in items[0].extra
+    assert "score" not in items[0].extra
+
+
+@pytest.mark.asyncio
 async def test_opencli_one_sub_fails_other_continues(monkeypatch):
     """Non-zero exit on one sub is skipped; the other still returns posts."""
     _patch_settings(monkeypatch)

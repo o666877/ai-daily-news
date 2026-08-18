@@ -52,9 +52,10 @@ FRESH_WINDOW_HOURS: float = 72.0  # aligned with the Atom path's window
 # Preflight self-heal: when the bridge is down (Chrome closed at the 08:00
 # unattended run), each sub command would burn its full 45s timeout before
 # reporting BROWSER_CONNECT — ~4 wasted minutes for 5 subs. Instead: probe
-# connectivity (~1s), launch Chrome on Windows, reprobe within a ~15s budget,
-# and yield to the Atom fallback immediately when rescue fails.
-_DOCTOR_TIMEOUT_S: float = 10.0
+# connectivity (healthy doctor returns in ~1s; a hung one is cut at 5s),
+# launch Chrome on Windows, reprobe twice — worst case ~25s total before
+# yielding to the Atom fallback.
+_DOCTOR_TIMEOUT_S: float = 5.0
 _PREFLIGHT_RETRY_DELAYS: tuple[float, ...] = (8.0, 7.0)
 
 _DISABLE_ENV = "AIDAILY_REDDIT_DISABLE_OPENCLI"
@@ -201,7 +202,9 @@ def _launch_chrome() -> None:
     """Fire-and-forget Chrome start on Windows; harmless failure elsewhere.
 
     Called only on win32 — `cmd /c start chrome` resolves Chrome via App
-    Paths. Failure is expected on headless Windows (server core) and logged.
+    Paths. `start` returns 0 even when Chrome is absent, so launch success
+    is never trusted directly: the "launch_failed" preflight outcome means
+    the *reprobes* failed, not that this call errored.
     """
     try:
         subprocess.Popen(
@@ -295,10 +298,10 @@ def _build_item(
     if post_id:
         extra["post_id"] = post_id
     score = post.get("score")
-    if isinstance(score, int):
+    if _is_count(score):
         extra["score"] = score
     num_comments = post.get("comments")
-    if isinstance(num_comments, int):
+    if _is_count(num_comments):
         extra["num_comments"] = num_comments
     post_hint = str(post.get("post_hint") or "").strip()
     if post_hint:
@@ -314,6 +317,20 @@ def _build_item(
         rawText=raw_text,
         publishedAt=published_at,
         extra=extra,
+    )
+
+
+def _is_count(value: Any) -> bool:
+    """Numeric crowd-signal check: accepts int/float ≥ 0, rejects bool.
+
+    bool is an int subclass — `comments: True` from a sloppy adapter must
+    not land in extra as a count (scorer would reject it downstream, but
+    the collector should not write garbage in the first place).
+    """
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and value >= 0
     )
 
 
