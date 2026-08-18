@@ -151,12 +151,12 @@ async def test_put_settings_without_auth_returns_1003(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# T026 (US2): dailyCount validation — must be one of {10,20,30,40,50}.
+# T026 (US2): dailyCount validation — must be one of {8,10,15,20,30,40,50}.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_value", [15, "30", 30.0, 0, 60, -10, 100])
+@pytest.mark.parametrize("bad_value", ["30", 30.0, 0, 60, -10, 100])
 async def test_put_settings_daily_count_out_of_enum_returns_1005(
     client: AsyncClient, bad_value: object
 ) -> None:
@@ -173,7 +173,7 @@ async def test_put_settings_daily_count_out_of_enum_returns_1005(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("good_value", [10, 20, 30, 40, 50])
+@pytest.mark.parametrize("good_value", [10, 15, 20, 30, 40, 50])
 async def test_put_settings_daily_count_valid_returns_echo(
     client: AsyncClient, good_value: int
 ) -> None:

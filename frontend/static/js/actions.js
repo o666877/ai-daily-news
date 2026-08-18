@@ -1,6 +1,6 @@
-/* 动作层：筛选、加载、设置面板、token、分享、密度切换。 */
+/* 动作层：筛选、加载、设置面板、token、分享。 */
 
-import { state, typeFromBackend, activeStyleMode } from "./state.js";
+import { state, typeFromBackend } from "./state.js";
 import { toast } from "./ui.js";
 import {
   fetchArticles, fetchArticle, fetchSettings, saveSettings,
@@ -8,7 +8,7 @@ import {
 } from "./api.js";
 import {
   renderList, renderEmpty, renderReaderEmpty, renderReaderLoading,
-  renderReader, syncReaderStyleSwitch
+  renderReader
 } from "./render.js";
 
 /* ═══ 筛选与拉取 ═══ */
@@ -74,16 +74,12 @@ function applyTogglesToUI() {
   document.querySelectorAll("[data-src-toggle]").forEach(function (inp) { inp.checked = !!state.toggles[inp.dataset.srcToggle]; });
   document.querySelectorAll("[data-type-toggle]").forEach(function (inp) { inp.checked = !!state.toggles[inp.dataset.typeToggle]; });
   var dp = document.querySelector("[data-toggle='dailyPush']"); if (dp) dp.checked = !!state.toggles.dailyPush;
-  document.querySelectorAll("[name='styleMode']").forEach(function (inp) {
-    inp.checked = (inp.value === (state.styleMode || 'standard'));
-  });
 }
 
 function readTogglesFromUI() {
   document.querySelectorAll("[data-src-toggle]").forEach(function (inp) { state.toggles[inp.dataset.srcToggle] = inp.checked; });
   document.querySelectorAll("[data-type-toggle]").forEach(function (inp) { state.toggles[inp.dataset.typeToggle] = inp.checked; });
   var dp = document.querySelector("[data-toggle='dailyPush']"); if (dp) state.toggles.dailyPush = dp.checked;
-  var sm = document.querySelector("[name='styleMode']:checked"); if (sm) state.styleMode = sm.value;
 }
 
 function syncTogglesFromSettings(s) {
@@ -91,7 +87,6 @@ function syncTogglesFromSettings(s) {
   state.toggles.agent = !!s.types.agent; state.toggles["self-improve"] = !!s.types.self_improve; state.toggles["open-source"] = !!s.types.open_source; state.toggles.tools = !!s.types.tools; state.toggles.commentary = !!s.types.commentary;
   state.toggles.dailyPush = !!s.dailyPush.enabled;
   state.styleMode = s.styleMode || 'standard';
-  state.currentStyle = null;
 }
 
 function handleOpenSettings() {
@@ -122,7 +117,6 @@ function handleApplySettings() {
   saveSettings(body).then(function (r) {
     document.getElementById("settingsDialog").close();
     toast("已保存 · 生效刊期：" + (r.effectiveAt || "下一期"));
-    state.currentStyle = null;
     refetchByFilters();
   }).catch(function (e) {
     if (e.code === 1003) {
@@ -165,23 +159,6 @@ function promptForToken(onValid) {
   });
 }
 
-/* ═══ 阅读密度 ═══ */
-function applyReaderStyleSwitch(mode) {
-  state.currentStyle = mode;
-  renderList();
-  if (state.selectedId) {
-    var a = state.articles.filter(function (x) { return x.id === state.selectedId; })[0]
-      || state.byId[state.selectedId];
-    // 列表项不含 body/sourceUrl（后端也可能序列化为 null）——只有
-    // body 非空的详情对象才能直接重渲染，否则必须回源拉详情
-    // （否则切换密度后正文会静默变空）。
-    if (a && a.body) { renderReader(a); return; }
-    loadArticleIntoReader(state.selectedId);
-  } else {
-    renderReaderEmpty();
-  }
-}
-
 /* ═══ 分享 ═══ */
 function handleShare(articleId) {
   if (!getToken()) { promptForToken(); return; }
@@ -204,5 +181,5 @@ function handleShare(articleId) {
 export {
   syncChips, applyToggles, selectFirstIfNone, loadArticleIntoReader,
   refetchByFilters, applyTogglesToUI, handleOpenSettings, handleApplySettings,
-  handleResetSettings, promptForToken, applyReaderStyleSwitch, handleShare
+  handleResetSettings, promptForToken, handleShare
 };

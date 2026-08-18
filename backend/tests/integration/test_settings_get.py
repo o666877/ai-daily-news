@@ -60,12 +60,12 @@ async def test_get_settings_with_invalid_token_returns_1003(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_get_settings_includes_daily_count_default_8(client: AsyncClient) -> None:
+async def test_get_settings_includes_daily_count_default_15(client: AsyncClient) -> None:
     res = await client.get("/api/v1/settings", headers=AUTH)
     assert res.status_code == 200, res.text
     body = res.json()
     assert "dailyCount" in body
-    assert body["dailyCount"] == 8  # default (changed from 30 to 8)
+    assert body["dailyCount"] == 15  # default (changed from 30 → 8 → 15)
 
 
 @pytest.mark.asyncio

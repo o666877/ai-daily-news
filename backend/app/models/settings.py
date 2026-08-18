@@ -18,7 +18,7 @@ from app.infra.db import Base
 from app.models._base import CamelModel
 from app.models.meta import SOURCE_KEYS, TYPE_KEYS
 
-DAILY_COUNT_VALUES = (8, 10, 20, 30, 40, 50)
+DAILY_COUNT_VALUES = (8, 10, 15, 20, 30, 40, 50)
 STYLE_MODE_VALUES = ("concise", "standard", "detailed")
 
 
@@ -40,9 +40,9 @@ class SettingsORM(Base):
     sources: Mapped[dict] = mapped_column(JSON, default=dict)
     types: Mapped[dict] = mapped_column(JSON, default=dict)
     daily_push: Mapped[dict] = mapped_column(JSON, default=dict)
-    # Runtime default is 8; the database check constraint intentionally accepts only
+    # Runtime default is 15; the database check constraint intentionally accepts only
     # Pydantic-facing values when writing through SettingsIn.
-    daily_count: Mapped[int] = mapped_column(Integer, nullable=False, default=8)
+    daily_count: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
     style_mode: Mapped[str] = mapped_column(
         String(16), nullable=False, default="standard"
     )
@@ -66,7 +66,7 @@ class SettingsOut(CamelModel):
     sources: dict[str, bool]
     types: dict[str, bool]
     dailyPush: DailyPush
-    dailyCount: Literal[8, 10, 20, 30, 40, 50] = 8
+    dailyCount: Literal[8, 10, 15, 20, 30, 40, 50] = 15
     styleMode: Literal["concise", "standard", "detailed"] = "standard"
     updatedAt: str | None = None
 
@@ -77,7 +77,7 @@ class SettingsIn(CamelModel):
     sources: dict[str, StrictBool]
     types: dict[str, StrictBool]
     dailyPush: DailyPush
-    dailyCount: Literal[8, 10, 20, 30, 40, 50]
+    dailyCount: Literal[8, 10, 15, 20, 30, 40, 50]
     styleMode: Literal["concise", "standard", "detailed"]
 
     @model_validator(mode="after")
@@ -104,7 +104,7 @@ def default_settings() -> dict:
         "sources": {k: True for k in SOURCE_KEYS},
         "types": {k: True for k in TYPE_KEYS},
         "daily_push": {"enabled": True, "time": "08:00"},
-        "daily_count": 8,
+        "daily_count": 15,
         "style_mode": "standard",
     }
 

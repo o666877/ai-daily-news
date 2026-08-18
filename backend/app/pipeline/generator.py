@@ -63,7 +63,7 @@ def _iso(date: datetime) -> str:
 async def _load_settings_snapshot(session: AsyncSession) -> dict[str, Any]:
     """Return {sources: [...], types: [...], daily_count: int} from settings row.
 
-    Default all-on if no settings row, default daily_count=30 if column missing.
+    Default all-on if no settings row, default daily_count=15 if column missing.
     Filters by bool=True — disabled sources/types are excluded from filtersApplied.
     """
     from sqlalchemy import select
@@ -77,7 +77,7 @@ async def _load_settings_snapshot(session: AsyncSession) -> dict[str, Any]:
         return {
             "sources": [s.value for s in SourceKey],
             "types": [t.value for t in TypeKey],
-            "daily_count": 30,
+            "daily_count": 15,
         }
     sources_dict = dict(orm.sources or {})
     types_dict = dict(orm.types or {})
@@ -88,7 +88,7 @@ async def _load_settings_snapshot(session: AsyncSession) -> dict[str, Any]:
         "types": [
             k for k, v in merged_bool_map(types_dict, TYPE_KEYS).items() if v
         ],
-        "daily_count": int(getattr(orm, "daily_count", 30) or 30),
+        "daily_count": int(getattr(orm, "daily_count", 15) or 15),
     }
 
 
@@ -210,7 +210,7 @@ async def generate_issue(
             await session.commit()
 
         snapshot = await _load_settings_snapshot(session)
-        daily_count = int(snapshot.get("daily_count", 30))
+        daily_count = int(snapshot.get("daily_count", 15))
         filters = {
             "sources": snapshot["sources"],
             "types": snapshot["types"],

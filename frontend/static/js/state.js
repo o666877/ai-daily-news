@@ -17,20 +17,10 @@ var TYPE_NAMES = {
   "commentary": "观点时评"
 };
 
-/* 阅读密度档位 (T042) */
-var STYLE_FIELDS = {
-  concise: {
-    list: ['title', 'sourceName', 'compositeScore'],
-    detail: ['title', 'summary', 'sourceUrl']
-  },
-  standard: {
-    list: ['title', 'excerpt', 'type', 'src', 'time', 'readingMinutes', 'compositeScore'],
-    detail: ['title', 'excerpt', 'lede', 'body', 'points', 'sourceUrl', 'readingMinutes']
-  },
-  detailed: {
-    list: ['title', 'excerpt', 'type', 'src', 'time', 'readingMinutes', 'compositeScore', 'dimensionScores'],
-    detail: ['title', 'excerpt', 'lede', 'body', 'points', 'quote', 'sourceUrl', 'readingMinutes', 'dimensionScores', 'authorityTier']
-  }
+/* 各视图渲染的字段（固定 standard 档，阅读密度档位已下线）。 */
+var FIELDS = {
+  list: ['title', 'excerpt', 'type', 'src', 'time'],
+  detail: ['title', 'excerpt', 'lede', 'body', 'points', 'sourceUrl', 'readingMinutes']
 };
 
 var state = {
@@ -42,18 +32,13 @@ var state = {
   articles: [],
   byId: {},
   issueId: null,
-  styleMode: "standard",
-  currentStyle: null
+  styleMode: "standard"
 };
 
-function getFields(styleMode, view) {
-  return (STYLE_FIELDS[styleMode] && STYLE_FIELDS[styleMode][view]) || STYLE_FIELDS.standard[view];
-}
-function activeStyleMode() { return state.currentStyle || state.styleMode || 'standard'; }
 function typeToBackend(k) { return TYPE_TO_BACKEND[k] || k; }
 function typeFromBackend(k) { return TYPE_FROM_BACKEND[k] || k; }
 
 export {
-  SOURCES, TYPE_NAMES, state, getFields, activeStyleMode,
+  SOURCES, TYPE_NAMES, state, FIELDS,
   typeToBackend, typeFromBackend
 };

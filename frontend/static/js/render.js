@@ -1,31 +1,15 @@
 /* 渲染层：列表 + 阅读器。纯 DOM 输出，事件绑定统一在 main.js 委托。 */
 
 import {
-  SOURCES, TYPE_NAMES, state, getFields, activeStyleMode, typeFromBackend
+  SOURCES, TYPE_NAMES, state, FIELDS, typeFromBackend
 } from "./state.js";
 import { esc, toast, ICONS } from "./ui.js";
 import { renderMarkdown } from "./markdown.js";
 
-var TIER_NAMES = { official_blog: "官方发布", authoritative_media: "机构·权威媒体", community: "社区" };
-
-function renderScoreBadges(src) {
-  var score = (src && src.score) ? src.score : src; // 接受 article 或 score 对象
-  if (!score) return "";
-  var dims = score.dimensionScores || {};
-  var parts = [];
-  if (dims.authority   != null) parts.push('<span class="score-badge dim-authority"   title="权威度：发布方可信度（官方博客90/机构80/媒体70/社区50）">权' + esc(dims.authority)   + '</span>');
-  if (dims.depth       != null) parts.push('<span class="score-badge dim-depth"       title="深度：信息密度与结构化程度">深' + esc(dims.depth)       + '</span>');
-  if (dims.timeliness  != null) parts.push('<span class="score-badge dim-timeliness"  title="时效：发布时间新鲜度（幂律衰减）">时' + esc(dims.timeliness)  + '</span>');
-  if (dims.expression  != null) parts.push('<span class="score-badge dim-expression"  title="表达：叙事与可读性">表' + esc(dims.expression)  + '</span>');
-  if (dims.engagement  != null) parts.push('<span class="score-badge dim-engagement"  title="热度：平台原始信号（GitHub star 对数压缩；50 为无信号默认值）">热' + esc(dims.engagement)  + '</span>');
-  var tier = score.authorityTier ? '<span class="score-badge dim-tier" title="权威等级：官方发布90 / 机构·权威媒体70-80 / 社区50">' + esc(TIER_NAMES[score.authorityTier] || score.authorityTier) + '</span>' : '';
-  return parts.length ? '<span class="score-badges">' + parts.join("") + tier + '</span>' : "";
-}
-
 function renderList() {
   var el = document.getElementById("articleList");
   el.innerHTML = "";
-  var fields = getFields(activeStyleMode(), 'list');
+  var fields = FIELDS.list;
   state.articles.forEach(function (a) {
     var src = SOURCES[a.src] || { short: a.src, icon: "globe", name: a.src };
     var typeKey = typeFromBackend(a.type);
@@ -53,20 +37,11 @@ function renderList() {
     if (fields.indexOf('time') >= 0 && a.time) {
       metaParts.push('<span class="time">' + esc(a.time) + '</span>');
     }
-    if (fields.indexOf('readingMinutes') >= 0 && a.readingMinutes) {
-      metaParts.push('<span class="reading-min">' + esc(a.readingMinutes) + ' 分钟</span>');
-    }
-    if (fields.indexOf('compositeScore') >= 0 && a.compositeScore != null) {
-      metaParts.push('<span class="score-badge dim-composite">综合 ' + esc(a.compositeScore) + '</span>');
-    }
     if (metaParts.length) {
       html += '<div class="article-item-meta">' + metaParts.join("") + '</div>';
     }
     if (fields.indexOf('excerpt') >= 0) {
       html += '<p class="item-excerpt">' + esc(a.excerpt || "") + '</p>';
-    }
-    if (fields.indexOf('dimensionScores') >= 0) {
-      html += renderScoreBadges(a);
     }
     item.innerHTML = html;
     el.appendChild(item);
@@ -114,7 +89,7 @@ function renderReader(a) {
   var body = document.getElementById("readerBody");
   var kicker = document.getElementById("readerKicker");
   if (!a) { renderReaderEmpty(); return; }
-  var fields = getFields(activeStyleMode(), 'detail');
+  var fields = FIELDS.detail;
   var src = SOURCES[a.src] || { short: a.src, icon: "globe", name: a.src };
   var typeKey = typeFromBackend(a.type);
   var typeName = TYPE_NAMES[typeKey] || a.type;
@@ -146,12 +121,6 @@ function renderReader(a) {
       ledeHtml + summaryHtml + bodyHtml + quoteHtml +
       (pointsHtml ? '<ul>' + pointsHtml + '</ul>' : "") +
     '</div>' +
-    '<div class="article-body score-block">' +
-      renderScoreBadges(a) +
-      (fields.indexOf('authorityTier') >= 0 && a.score && a.score.authorityTier
-        ? '<span class="score-badge dim-tier-detail" title="权威等级：官方发布90 / 机构·权威媒体70-80 / 社区50">权威等级 ' + esc(TIER_NAMES[a.score.authorityTier] || a.score.authorityTier) + '</span>'
-        : '') +
-    '</div>' +
     '<div class="article-actions">' +
       '<a class="btn btn-primary" id="readOriginal" target="_blank" rel="noopener noreferrer" href="' + esc(a.sourceUrl || "#") + '">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>' +
@@ -167,19 +136,8 @@ function renderReader(a) {
       '<span><code>' + esc(String(a.id || "").toUpperCase()) + '</code></span>' +
     '</div>';
   body.innerHTML = html;
-  syncReaderStyleSwitch();
-}
-
-function syncReaderStyleSwitch() {
-  var active = activeStyleMode();
-  document.querySelectorAll(".reader-style-switch [data-style]").forEach(function (b) {
-    var on = (b.dataset.style === active);
-    b.setAttribute("aria-pressed", String(on));
-    b.classList.toggle("is-active", on);
-  });
 }
 
 export {
-  renderList, renderEmpty, renderReaderEmpty, renderReaderLoading,
-  renderReader, syncReaderStyleSwitch
+  renderList, renderEmpty, renderReaderEmpty, renderReaderLoading, renderReader
 };

@@ -9,7 +9,7 @@ import {
 import {
   refetchByFilters, applyToggles, selectFirstIfNone,
   loadArticleIntoReader, handleOpenSettings, handleApplySettings,
-  handleResetSettings, applyReaderStyleSwitch, handleShare
+  handleResetSettings, handleShare
 } from "./actions.js";
 
 /* ═══ 事件绑定 ═══ */
@@ -63,9 +63,6 @@ document.querySelector("[data-toggle='dailyPush']").addEventListener("change", f
 });
 document.getElementById("resetSettings").addEventListener("click", handleResetSettings);
 document.getElementById("applySettings").addEventListener("click", handleApplySettings);
-document.querySelectorAll(".reader-style-switch [data-style]").forEach(function (b) {
-  b.addEventListener("click", function () { applyReaderStyleSwitch(b.dataset.style); });
-});
 
 /* ═══ 日期 ═══ */
 (function () {

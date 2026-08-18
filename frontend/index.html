@@ -325,7 +325,6 @@
   .switch input:focus-visible + .track { box-shadow: var(--focus-ring); }
   .switch input:disabled + .track { opacity: 0.4; }
   .settings-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); }
-  .settings-note { font-size: 12px; color: var(--ink-muted); margin-top: 12px; line-height: 1.6; }
 
   /* ── 状态：加载 ───────────────────────── */
   .skeleton-list { display: flex; flex-direction: column; }
@@ -355,76 +354,13 @@
   }
   footer.site-foot .foot-mark { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; }
 
-  /* ═══ US3 阅读密度档位 (T048) ═══ */
-  .reader-style-switch {
-    display: inline-flex; gap: 2px; padding: 2px;
-    border: 1px solid var(--border); border-radius: var(--radius-md);
-    background: var(--surface-2);
-  }
-  .reader-style-switch button {
-    border: 0; background: transparent; color: var(--ink-muted);
-    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-    padding: 4px 9px; border-radius: calc(var(--radius-md) - 2px);
-    cursor: pointer; line-height: 1; transition: background var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
-  }
-  .reader-style-switch button:hover { color: var(--ink); }
-  .reader-style-switch button.is-active {
-    background: var(--ink); color: var(--bg);
-  }
-  .reader-style-switch button:focus-visible { outline: var(--focus-ring); }
-
-  .style-mode-row { align-items: flex-start; }
-  .radio-group { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-  .radio-pill {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px;
-    font-size: 13px; color: var(--ink-muted); cursor: pointer;
-    background: var(--surface); transition: border-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
-  }
-  .radio-pill:hover { border-color: var(--ink-muted); color: var(--ink); }
-  .radio-pill input { margin: 0; accent-color: var(--accent); }
-  .radio-pill:has(input:checked) {
-    border-color: var(--ink); color: var(--ink);
-    background: color-mix(in oklab, var(--ink) 6%, var(--surface));
-  }
-
-  .article-item-meta .reading-min { font-family: var(--font-mono); font-size: 11.5px; }
   .article-item-meta .time { font-family: var(--font-mono); }
-
-  .score-badge {
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 1px 7px; border-radius: 999px;
-    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-    color: var(--ink-muted); background: var(--surface-2);
-    border: 1px solid transparent; white-space: nowrap;
-  }
-  .article-item-meta .score-badge { font-size: 11px; padding: 1px 6px; }
-  .score-badge.dim-authority   { color: var(--accent-ink); background: color-mix(in oklab, var(--accent) 12%, transparent); }
-  .score-badge.dim-depth       { color: var(--ok);          background: color-mix(in oklab, var(--ok) 12%, transparent); }
-  .score-badge.dim-timeliness  { color: var(--warn);        background: color-mix(in oklab, var(--warn) 14%, transparent); }
-  .score-badge.dim-expression  { color: var(--ink);         background: var(--surface-2); }
-  .score-badge.dim-engagement  { color: var(--warn);        background: color-mix(in oklab, var(--warn) 14%, transparent); }
 
   .must-read {
     display: inline-block; vertical-align: 2px; margin-right: 6px;
     padding: 1px 6px; border-radius: 4px;
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
     color: var(--accent-ink); background: var(--accent-soft);
-  }
-  .score-badge.dim-composite   { color: var(--ink);         background: var(--surface-2); border-color: var(--border); }
-  .score-badge.dim-tier,
-  .score-badge.dim-tier-detail {
-    color: var(--accent-ink); background: var(--accent-soft);
-  }
-
-  .score-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
-  .article-item .score-badges { margin-top: 4px; }
-  .article-body.score-block:empty { display: none; }
-  .article-body.score-block { margin: 14px 0 0; padding: 0; }
-  .article-body.score-block .score-badge { font-size: 11.5px; padding: 2px 9px; }
-
-  @media (max-width: 860px) {
-    .reader-style-switch { margin-left: auto; }
   }
 </style>
 </head>
@@ -495,11 +431,6 @@
       </button>
       <span class="kicker" id="readerKicker">AI 日报 · 阅读器</span>
       <span class="kicker"><strong id="readerCount">0</strong> 条可见</span>
-      <div class="reader-style-switch" role="group" aria-label="临时切换阅读密度（本刊期内有效，不写入偏好）">
-        <button type="button" data-style="concise" title="简洁">简</button>
-        <button type="button" data-style="standard" title="标准">标</button>
-        <button type="button" data-style="detailed" title="详细">详</button>
-      </div>
     </div>
     <div class="reader-body" id="readerBody">
       <div class="reader-empty">
@@ -574,18 +505,6 @@
         <label class="switch"><input type="checkbox" data-toggle="dailyPush" checked><span class="track"></span><span class="thumb"></span></label>
       </div>
     </section>
-    <section class="settings-section">
-      <h3>阅读密度</h3>
-      <div class="switch-row style-mode-row">
-        <div class="switch-label">阅读风格<small>列表与详情显示的字段密度</small></div>
-        <div class="radio-group">
-          <label class="radio-pill"><input type="radio" name="styleMode" value="concise"> 简洁</label>
-          <label class="radio-pill"><input type="radio" name="styleMode" value="standard" checked> 标准</label>
-          <label class="radio-pill"><input type="radio" name="styleMode" value="detailed"> 详细</label>
-        </div>
-      </div>
-    </section>
-    <p class="settings-note">提示：这是原型演示，开关会真实过滤下面的条目。正式版里，这些偏好会同步给采集端的抓取计划。</p>
   </div>
   <div class="settings-foot">
     <button class="btn btn-ghost" id="resetSettings">恢复默认</button>
@@ -596,7 +515,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <footer class="site-foot" data-od-id="footer">
-  <span class="foot-mark">AI DAILY · 编辑：一个不太困的 AI</span> — 内容为演示数据，仅供原型演示。正式版将接入真实抓取与摘要管线。
+  <span class="foot-mark">AI DAILY · 编辑：一个不太困的 AI</span>
 </footer>
 
 <script src="/static/marked.min.js"></script>
