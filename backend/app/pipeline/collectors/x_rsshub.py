@@ -326,10 +326,30 @@ def _tweets_to_raw_items(account: str, tweets: list[dict]) -> list[RawItem]:
                 title=title,
                 rawText=text[:_TEXT_MAX],
                 publishedAt=str(published),
-                extra={"author": account, "tweet_id": tid},
+                extra={"author": account, "tweet_id": tid, **_engagement_snapshot(tweet)},
             )
         )
     return items
+
+
+def _engagement_snapshot(tweet: dict) -> dict[str, int]:
+    """Pull likes/views/retweets from twitter-cli metrics into extra.
+
+    Interaction counts are volatile snapshots — they cannot be re-fetched
+    after the collection window, so store the three agreed keys now for
+    future anchor recalibration. Missing/non-numeric values are omitted
+    rather than defaulted (boundary tolerance for external output).
+    """
+    metrics = tweet.get("metrics")
+    if not isinstance(metrics, dict):
+        return {}
+    snapshot: dict[str, int] = {}
+    for key in ("likes", "views", "retweets"):
+        value = metrics.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            continue
+        snapshot[key] = int(value)
+    return snapshot
 
 
 def _build_tweet_url(account: str, tweet_id: str, tweet: dict) -> str:

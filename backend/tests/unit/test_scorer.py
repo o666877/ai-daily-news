@@ -138,6 +138,51 @@ def test_compute_engagement_invalid_star_type_is_neutral():
     assert compute_engagement("github", {"stars": -5}) == 50
 
 
+# ---------- compute_engagement: three-source dispatch (spec 004) ----------
+
+
+def test_compute_engagement_x_likes_anchor_100k():
+    """100k likes = 100; 100≈40, 1k≈60, 10k≈80 (log10 compression)."""
+    assert compute_engagement("x", {"likes": 100_000}) == 100
+    assert compute_engagement("x", {"likes": 100}) == 40
+    assert compute_engagement("x", {"likes": 1_000}) == 60
+    assert compute_engagement("x", {"likes": 10_000}) == 80
+
+
+def test_compute_engagement_x_zero_likes_is_0():
+    assert compute_engagement("x", {"likes": 0}) == 0
+
+
+def test_compute_engagement_x_views_do_not_count():
+    """Views measure exposure, not engagement — never part of the formula."""
+    assert compute_engagement("x", {"views": 1_000_000}) == 50
+
+
+def test_compute_engagement_x_invalid_likes_neutral():
+    assert compute_engagement("x", {"likes": "viral"}) == 50
+    assert compute_engagement("x", {"likes": -3}) == 50
+
+
+def test_compute_engagement_reddit_comments_anchor_500():
+    """500 comments = 100; 10≈39, 50≈63, 100≈74 (log10 compression)."""
+    assert compute_engagement("reddit", {"num_comments": 500}) == 100
+    assert compute_engagement("reddit", {"num_comments": 10}) == 39
+    assert compute_engagement("reddit", {"num_comments": 50}) == 63
+    assert compute_engagement("reddit", {"num_comments": 100}) == 74
+
+
+def test_compute_engagement_reddit_invalid_comments_neutral():
+    assert compute_engagement("reddit", {"num_comments": "hot"}) == 50
+    assert compute_engagement("reddit", {"num_comments": -1}) == 50
+
+
+def test_compute_engagement_signals_are_dimension_isolated():
+    """A source only reads its own signal key — cross-source leakage is a bug."""
+    assert compute_engagement("github", {"likes": 50_000}) == 50
+    assert compute_engagement("x", {"stars": 50_000}) == 50
+    assert compute_engagement("reddit", {"likes": 50_000}) == 50
+
+
 # ---------- compose_score ----------
 
 def test_compose_score_all_100_is_100():

@@ -98,14 +98,27 @@ def _install_opencli_stub(monkeypatch, sub_to_outcome: dict) -> dict:
       {"invalid_json": True}         → stdout is not JSON
       {"raise": exc}                 → spawn raises (binary missing etc.)
 
+    Special key "__doctor__" controls the preflight connectivity probe:
+      {"sequence": [False, True]}    → probe results in order (last repeats)
+      omitted                        → probe always succeeds
+
     Returns {"call_log": [argv, ...]}.
     """
     import app.pipeline.collectors.reddit_opencli as oc
 
     call_log: list[list[str]] = []
+    doctor_seq: list[bool] = list(sub_to_outcome.get("__doctor__", {}).get("sequence", [True]))
 
     async def fake_exec(*args, **kwargs):
         call_log.append(list(args))
+        if args[1] == "doctor":
+            ok = doctor_seq.pop(0) if doctor_seq else True
+            if ok:
+                return _FakeProc(
+                    b"[OK] Daemon: running\n[OK] Extension: connected\n"
+                    b"[OK] Connectivity: connected in 0.3s"
+                )
+            return _FakeProc(b"[FAIL] Connectivity: failed", returncode=1)
         # argv: ["opencli", "reddit", "subreddit", <sub>, ...]
         sub = args[3]
         outcome = sub_to_outcome.get(sub, {"posts": []})
@@ -119,6 +132,8 @@ def _install_opencli_stub(monkeypatch, sub_to_outcome: dict) -> dict:
         return _FakeProc(payload, returncode=0)
 
     monkeypatch.setattr(oc.asyncio, "create_subprocess_exec", fake_exec)
+    # Preflight retry delays default to zero so tests never really sleep.
+    monkeypatch.setattr(oc, "_PREFLIGHT_RETRY_DELAYS", ())
     return {"call_log": call_log}
 
 
@@ -165,11 +180,13 @@ async def test_opencli_happy_path_field_mapping(monkeypatch):
     assert ll.rawText == "Agent framework discussion"
     assert "post_hint" not in ll.extra  # empty hint omitted
 
-    # argv shape: serial, one call per sub, top/week/limit 10, json, background.
+    # argv shape: doctor preflight first, then one subreddit call per sub.
     argvs = install["call_log"]
-    assert len(argvs) == 2
-    assert argvs[0][1:4] == ["reddit", "subreddit", "MachineLearning"]
-    assert argvs[0][4:] == [
+    assert argvs[0][1] == "doctor"
+    sub_argvs = [a for a in argvs if a[1] == "reddit"]
+    assert len(sub_argvs) == 2
+    assert sub_argvs[0][1:4] == ["reddit", "subreddit", "MachineLearning"]
+    assert sub_argvs[0][4:] == [
         "--sort", "top", "--time", "week", "--limit", "10",
         "-f", "json", "--window", "background",
     ]
@@ -196,6 +213,8 @@ async def test_opencli_serial_execution(monkeypatch):
 
     def make_exec(outcome_by_sub):
         async def fake_exec(*args, **kwargs):
+            if args[1] == "doctor":
+                return _SlowProc(b"[OK] Connectivity: connected")
             sub = args[3]
             payload = json.dumps(outcome_by_sub.get(sub, {"posts": []})["posts"])
             return _SlowProc(payload.encode())
@@ -293,6 +312,104 @@ async def test_opencli_rawtext_capped(monkeypatch):
 
     items = await oc.collect_via_opencli(["S"])
     assert len(items[0].rawText) <= 4000
+
+
+# ---------- bridge preflight self-heal (spec 004) ----------
+
+
+@pytest.mark.asyncio
+async def test_preflight_ok_runs_straight_through(monkeypatch):
+    """Healthy bridge → one doctor probe, then normal collection."""
+    _patch_settings(monkeypatch)
+    import app.pipeline.collectors.reddit_opencli as oc
+    from unittest.mock import MagicMock
+
+    launch = MagicMock()
+    monkeypatch.setattr(oc, "_launch_chrome", launch)
+    install = _install_opencli_stub(
+        monkeypatch, {"S": {"posts": [_post_dict()]}}
+    )
+    monkeypatch.setattr(oc.shutil, "which", lambda _: "opencli")
+
+    items = await oc.collect_via_opencli(["S"])
+    assert len(items) == 1
+    launch.assert_not_called()
+    # exactly one doctor call, then the sub call
+    assert [a[1] for a in install["call_log"]] == ["doctor", "reddit"]
+
+
+@pytest.mark.asyncio
+async def test_preflight_fail_launches_chrome_and_recovers(monkeypatch):
+    """First probe fails → Chrome launched → reprobe succeeds → items returned."""
+    _patch_settings(monkeypatch)
+    import app.pipeline.collectors.reddit_opencli as oc
+    from unittest.mock import MagicMock
+
+    launch = MagicMock()
+    monkeypatch.setattr(oc, "_launch_chrome", launch)
+    install = _install_opencli_stub(
+        monkeypatch,
+        {"S": {"posts": [_post_dict()]}, "__doctor__": {"sequence": [False, True]}},
+    )
+    # After install — the stub resets delays to () as its last step.
+    monkeypatch.setattr(oc, "_PREFLIGHT_RETRY_DELAYS", (0,))
+    monkeypatch.setattr(oc.shutil, "which", lambda _: "opencli")
+
+    items = await oc.collect_via_opencli(["S"])
+    assert len(items) == 1
+    launch.assert_called_once()
+    doctor_calls = [a for a in install["call_log"] if a[1] == "doctor"]
+    assert len(doctor_calls) == 2, "must reprobe after launching Chrome"
+
+
+@pytest.mark.asyncio
+async def test_preflight_all_fail_returns_empty_no_sub_calls(monkeypatch):
+    """Probe fails, launch attempted, reprobe fails → empty list, no sub spawn.
+
+    Falling back to Atom is the dispatcher's job — the bridge just yields.
+    """
+    _patch_settings(monkeypatch)
+    import app.pipeline.collectors.reddit_opencli as oc
+    from unittest.mock import MagicMock
+
+    launch = MagicMock()
+    monkeypatch.setattr(oc, "_launch_chrome", launch)
+    install = _install_opencli_stub(
+        monkeypatch,
+        {"S": {"posts": [_post_dict()]}, "__doctor__": {"sequence": [False, False, False]}},
+    )
+    # After install — the stub resets delays to () as its last step.
+    monkeypatch.setattr(oc, "_PREFLIGHT_RETRY_DELAYS", (0, 0))
+    monkeypatch.setattr(oc.shutil, "which", lambda _: "opencli")
+
+    items = await oc.collect_via_opencli(["S"])
+    assert items == []
+    launch.assert_called_once()
+    assert all(a[1] != "reddit" for a in install["call_log"])
+
+
+@pytest.mark.asyncio
+async def test_preflight_non_windows_never_launches(monkeypatch):
+    """On non-Windows (server/container) a dead bridge means immediate empty —
+    no desktop to rescue, one probe only."""
+    _patch_settings(monkeypatch)
+    import app.pipeline.collectors.reddit_opencli as oc
+    from unittest.mock import MagicMock
+
+    launch = MagicMock()
+    monkeypatch.setattr(oc, "_launch_chrome", launch)
+    monkeypatch.setattr(oc.sys, "platform", "linux")
+    install = _install_opencli_stub(
+        monkeypatch,
+        {"S": {"posts": [_post_dict()]}, "__doctor__": {"sequence": [False, False]}},
+    )
+    monkeypatch.setattr(oc.shutil, "which", lambda _: "opencli")
+
+    items = await oc.collect_via_opencli(["S"])
+    assert items == []
+    launch.assert_not_called()
+    doctor_calls = [a for a in install["call_log"] if a[1] == "doctor"]
+    assert len(doctor_calls) == 1, "no reprobe without a desktop to rescue"
 
 
 def test_opencli_available_requires_binary(monkeypatch):

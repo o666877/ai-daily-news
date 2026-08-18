@@ -43,4 +43,6 @@ ID 后缀或列表位置重算（历史上有过后缀解析实现，已于 006 
 ## 评分（Score）
 
 条目的 5 维评分（authority/depth/engagement/timeliness/expression，0-100）加综合分，
-1:1 存于 `article_scores`。engagement 对 GitHub star 做 log10 压缩，无信号源取中性 50。
+1:1 存于 `article_scores`。engagement 按来源做 log10 压缩，各配独立锚点：GitHub star
+（锚 20k=100）、X 赞（锚 10 万=100）、Reddit 评论（锚 500=100）；web 及无信号来源
+（如 Atom 降级日的 Reddit）取中性 50。

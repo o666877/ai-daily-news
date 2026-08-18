@@ -866,7 +866,58 @@ async def test_collect_x_happy_path(monkeypatch):
     assert a0.title == "agent framework release from acc_a"[:80]
     assert a0.rawText == "agent framework release from acc_a"
     assert a0.publishedAt == "2026-08-12T08:00:00+00:00"
-    assert a0.extra == {"author": "acc_a", "tweet_id": "100"}
+    assert a0.extra == {
+        "author": "acc_a", "tweet_id": "100", "likes": 0, "views": 0, "retweets": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_collect_x_stores_engagement_snapshot(monkeypatch):
+    """likes/views/retweets from twitter-cli metrics land in extra (spec 004)."""
+    _patch_settings(monkeypatch, AIDAILY_X_ACCOUNTS="k")
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("TWITTER_CT0", "ct0")
+
+    tweet = _tweet_dict("7", "viral take", "k")
+    tweet["metrics"] = {
+        "likes": 149_658, "retweets": 12_000, "views": 27_926_916,
+        "replies": 500, "quotes": 40, "bookmarks": 900,
+    }
+    _install_twitter_cli_stub(monkeypatch, {"k": {"envelope": [tweet]}})
+
+    from app.pipeline.collectors.x_rsshub import collect_x_rsshub
+
+    items = await collect_x_rsshub()
+    assert items[0].extra["likes"] == 149_658
+    assert items[0].extra["retweets"] == 12_000
+    assert items[0].extra["views"] == 27_926_916
+    # Only the three agreed keys — replies/quotes/bookmarks stay out.
+    assert "replies" not in items[0].extra
+    assert "quotes" not in items[0].extra
+
+
+@pytest.mark.asyncio
+async def test_collect_x_missing_or_invalid_metrics_omitted(monkeypatch):
+    """Absent metrics dict or non-numeric values → keys omitted, no defaults."""
+    _patch_settings(monkeypatch, AIDAILY_X_ACCOUNTS="a,b")
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("TWITTER_CT0", "ct0")
+
+    no_metrics = _tweet_dict("1", "plain tweet", "a")
+    no_metrics.pop("metrics")
+    garbage = _tweet_dict("2", "weird metrics", "b")
+    garbage["metrics"] = {"likes": "viral", "views": None, "retweets": -5}
+
+    _install_twitter_cli_stub(
+        monkeypatch, {"a": {"envelope": [no_metrics]}, "b": {"envelope": [garbage]}}
+    )
+
+    from app.pipeline.collectors.x_rsshub import collect_x_rsshub
+
+    items = await collect_x_rsshub()
+    by_acc = {i.extra["author"]: i for i in items}
+    assert by_acc["a"].extra == {"author": "a", "tweet_id": "1"}
+    assert by_acc["b"].extra == {"author": "b", "tweet_id": "2"}
 
 
 @pytest.mark.asyncio

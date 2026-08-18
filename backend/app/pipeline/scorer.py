@@ -38,8 +38,18 @@ _WEIGHTS: dict[str, float] = {
     "expression": 0.10,
 }
 
-# GitHub stars → engagement score anchor: 20k+ stars ≈ 100.
-_ENGAGEMENT_STAR_ANCHOR = 20_000
+# Engagement anchors — one per source, each calibrated to its own magnitude.
+# stars / likes / comments are different scales; sharing one anchor would
+# compress two sources into the bottom half of the range. Anchors calibrated
+# 2026-08-18 from live sampling (X: 4 KOLs × 15 tweets; Reddit: AI-sub norms).
+# GitHub: 10★≈24, 100★≈47, 1k★≈70, 10k★≈93, 20k★=100.
+# X:      100 likes≈40, 1k≈60, 10k≈80, 100k=100 (karpathy median ≈78).
+# Reddit: 10 comments≈39, 50≈63, 100≈74, 500=100 (AI subs are small ponds).
+_ENGAGEMENT_ANCHORS: dict[str, tuple[str, int]] = {
+    "github": ("stars", 20_000),
+    "x": ("likes", 100_000),
+    "reddit": ("num_comments", 500),
+}
 
 _CODE_FENCE_RE = re.compile(r"```")
 _URL_RE = re.compile(r"https?://\S+")
@@ -81,18 +91,23 @@ def compute_timeliness(published_at: str | None) -> int:
 def compute_engagement(source_key: str, extra: dict | None) -> int:
     """Return engagement score in [0, 100] from raw platform signals.
 
-    GitHub: log10-compressed star count (Reddit-style compression — early
-    stars matter most). 10★≈24, 100★≈47, 1k★≈70, 10k★≈93, 20k★=100.
-    Sources without measurable signals (X/Reddit feeds, web) → 50 neutral.
+    Per-source log10 compression (early interactions matter most):
+    GitHub stars (anchor 20k), X likes (anchor 100k), Reddit comments
+    (anchor 500). Each source reads only its own signal key. Sources
+    without a signal (web, Atom-fallback Reddit) → 50 neutral.
     """
     if not extra:
         return 50
-    stars = extra.get("stars")
-    if isinstance(stars, (int, float)) and stars >= 0:
-        anchor = math.log10(1 + _ENGAGEMENT_STAR_ANCHOR)
-        score = round(100.0 * math.log10(1 + stars) / anchor)
-        return _clamp(score)
-    return 50
+    spec = _ENGAGEMENT_ANCHORS.get(source_key)
+    if spec is None:
+        return 50
+    signal_key, anchor_value = spec
+    raw = extra.get(signal_key)
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw < 0:
+        return 50
+    anchor = math.log10(1 + anchor_value)
+    score = round(100.0 * math.log10(1 + raw) / anchor)
+    return _clamp(score)
 
 
 def compose_score(dims: dict[str, int]) -> int:

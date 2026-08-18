@@ -34,6 +34,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -47,6 +48,14 @@ PER_SUB_LIMIT: int = 10          # posts requested per subreddit
 SUBPROCESS_TIMEOUT_S: float = 45.0  # browser navigation is slower than HTTP
 RAW_TEXT_CAP: int = 4000         # keep summarizer input bounded
 FRESH_WINDOW_HOURS: float = 72.0  # aligned with the Atom path's window
+
+# Preflight self-heal: when the bridge is down (Chrome closed at the 08:00
+# unattended run), each sub command would burn its full 45s timeout before
+# reporting BROWSER_CONNECT — ~4 wasted minutes for 5 subs. Instead: probe
+# connectivity (~1s), launch Chrome on Windows, reprobe within a ~15s budget,
+# and yield to the Atom fallback immediately when rescue fails.
+_DOCTOR_TIMEOUT_S: float = 10.0
+_PREFLIGHT_RETRY_DELAYS: tuple[float, ...] = (8.0, 7.0)
 
 _DISABLE_ENV = "AIDAILY_REDDIT_DISABLE_OPENCLI"
 _BIN_ENV = "AIDAILY_OPENCLI_BIN"
@@ -100,6 +109,8 @@ async def collect_via_opencli(subs: list[str]) -> list[RawItem]:
     """Fetch top-of-week posts for each sub serially via the browser bridge.
 
     Returns a flat list across subs; per-sub failures are logged and skipped.
+    A failed preflight self-heal returns [] — the dispatcher falls back to
+    the Atom feed.
     """
     bin_path = _resolve_bin()
     if not bin_path:
@@ -107,6 +118,9 @@ async def collect_via_opencli(subs: list[str]) -> list[RawItem]:
             "reddit_opencli_no_binary",
             extra={"source": SourceKey.REDDIT.value},
         )
+        return []
+
+    if not await _ensure_bridge(bin_path):
         return []
 
     items: list[RawItem] = []
@@ -123,6 +137,84 @@ async def collect_via_opencli(subs: list[str]) -> list[RawItem]:
                 },
             )
     return items
+
+
+async def _ensure_bridge(bin_path: str) -> bool:
+    """Preflight: probe connectivity, attempt to rescue, reprobe.
+
+    Outcomes logged as bridge_preflight: ok / launched / no_desktop /
+    launch_failed. Returns True when the bridge is usable.
+    """
+    if await _bridge_reachable(bin_path):
+        logger.info(
+            "bridge_preflight",
+            extra={"source": SourceKey.REDDIT.value, "outcome": "ok"},
+        )
+        return True
+
+    if sys.platform != "win32":
+        logger.warning(
+            "bridge_preflight",
+            extra={"source": SourceKey.REDDIT.value, "outcome": "no_desktop"},
+        )
+        return False
+
+    _launch_chrome()
+    for delay in _PREFLIGHT_RETRY_DELAYS:
+        await asyncio.sleep(delay)
+        if await _bridge_reachable(bin_path):
+            logger.info(
+                "bridge_preflight",
+                extra={"source": SourceKey.REDDIT.value, "outcome": "launched"},
+            )
+            return True
+    logger.warning(
+        "bridge_preflight",
+        extra={"source": SourceKey.REDDIT.value, "outcome": "launch_failed"},
+    )
+    return False
+
+
+async def _bridge_reachable(bin_path: str) -> bool:
+    """Run `opencli doctor` and check the connectivity line."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            bin_path, "doctor",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout_b, _stderr_b = await asyncio.wait_for(
+                proc.communicate(), timeout=_DOCTOR_TIMEOUT_S
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return False
+    except (OSError, ValueError):
+        return False
+    out = stdout_b.decode("utf-8", errors="replace") if stdout_b else ""
+    return "[OK] Connectivity" in out
+
+
+def _launch_chrome() -> None:
+    """Fire-and-forget Chrome start on Windows; harmless failure elsewhere.
+
+    Called only on win32 — `cmd /c start chrome` resolves Chrome via App
+    Paths. Failure is expected on headless Windows (server core) and logged.
+    """
+    try:
+        subprocess.Popen(
+            ["cmd", "/c", "start", "", "chrome"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except OSError as exc:
+        logger.warning(
+            "bridge_chrome_launch_failed",
+            extra={"source": SourceKey.REDDIT.value, "exception_type": type(exc).__name__},
+        )
 
 
 async def _fetch_one_sub(bin_path: str, sub_name: str) -> list[RawItem]:
