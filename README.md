@@ -20,13 +20,13 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 
 ### 信息源 & 类型
 
-| Source (`src`) | Type (`type`) |
-|---|---|
-| `x` (X / Twitter via twitter-cli) | `agent` (Agent / 智能体) |
-| `github` (GitHub trending + maintainer events) | `self_improve` (持续学习 / 自我进化) |
-| `reddit` (opencli 浏览器桥接 + Atom 兜底) | `open_source` (开源项目) |
-| `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率) |
-| | `commentary` (观点时评) |
+| Source (`src`)                                      | Type (`type`)                |
+| --------------------------------------------------- | ---------------------------- |
+| `x` (X / Twitter via twitter-cli)                   | `agent` (Agent / 智能体)        |
+| `github` (GitHub trending + maintainer events)      | `self_improve` (持续学习 / 自我进化) |
+| `reddit` (opencli 浏览器桥接 + Atom 兜底)                  | `open_source` (开源项目)         |
+| `web` (RSS: Simon Willison, Anthropic, OpenAI, ...) | `tools` (工具与效率)              |
+|                                                     | `commentary` (观点时评)          |
 
 ---
 
@@ -130,41 +130,41 @@ docker compose up -d
 
 ### LLM（必填）
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `AIDAILY_LLM_API_KEY` | — | Anthropic 兼容 API 密钥（必填） |
-| `AIDAILY_LLM_BASE_URL` | `https://api.anthropic.com` | 可改为 OneAPI/DeepSeek/Moonshot 转发层 |
-| `AIDAILY_LLM_MODEL` | `claude-haiku-4-5-20251001` | Anthropic 协议兼容模型 |
-| `AIDAILY_LLM_DAILY_BUDGET_USD` | `2.00` | 日花费上限，超出抛业务码 `9002` |
+| 变量                             | 默认                          | 说明                               |
+| ------------------------------ | --------------------------- | -------------------------------- |
+| `AIDAILY_LLM_API_KEY`          | —                           | Anthropic 兼容 API 密钥（必填）          |
+| `AIDAILY_LLM_BASE_URL`         | `https://api.anthropic.com` | 可改为 OneAPI/DeepSeek/Moonshot 转发层 |
+| `AIDAILY_LLM_MODEL`            | `claude-haiku-4-5-20251001` | Anthropic 协议兼容模型                 |
+| `AIDAILY_LLM_DAILY_BUDGET_USD` | `2.00`                      | 日花费上限，超出抛业务码 `9002`              |
 
 ### 鉴权（可选）
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `AIDAILY_BEARER_TOKEN` | — | 写接口鉴权 token；缺失则启动时随机生成并打印 stdout 一次 |
+| 变量                     | 默认  | 说明                                  |
+| ---------------------- | --- | ----------------------------------- |
+| `AIDAILY_BEARER_TOKEN` | —   | 写接口鉴权 token；缺失则启动时随机生成并打印 stdout 一次 |
 
 ### 服务器与调度
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `AIDAILY_HOST` | `127.0.0.1` | 绑定地址 |
-| `AIDAILY_PORT` | `8000` | 监听端口 |
-| `AIDAILY_TZ` | `Asia/Shanghai` | 时区（影响刊期日期判定） |
-| `AIDAILY_DB_PATH` | `./data/aidaily.db` | SQLite 路径（`:memory:` 用于测试） |
-| `AIDAILY_DAILY_PUSH_TIME` | `08:00` | 每日生成时刻（`HH:mm` 24h） |
+| 变量                        | 默认                  | 说明                         |
+| ------------------------- | ------------------- | -------------------------- |
+| `AIDAILY_HOST`            | `127.0.0.1`         | 绑定地址                       |
+| `AIDAILY_PORT`            | `8000`              | 监听端口                       |
+| `AIDAILY_TZ`              | `Asia/Shanghai`     | 时区（影响刊期日期判定）               |
+| `AIDAILY_DB_PATH`         | `./data/aidaily.db` | SQLite 路径（`:memory:` 用于测试） |
+| `AIDAILY_DAILY_PUSH_TIME` | `08:00`             | 每日生成时刻（`HH:mm` 24h）        |
 
 ### 信息源凭据
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` | — | X 源鉴权（x.com Cookie 值）；缺失且未开浏览器 Cookie → X 源静默跳过 |
-| `AIDAILY_X_ALLOW_BROWSER_COOKIES` | `false` | `1`/`true` 时复用本机浏览器 x.com 登录态 |
-| `AIDAILY_TWITTER_BIN` | PATH 自动探测 | `twitter` CLI 可执行文件路径 |
-| `AIDAILY_X_ACCOUNTS` | 内置 28 KOL | 逗号分隔的 X 用户名列表 |
-| `AIDAILY_GITHUB_TOKEN` | — | GitHub PAT，提升速率限制（缺失走 trending HTML） |
-| `AIDAILY_OPENCLI_BIN` | PATH 自动探测 | `opencli` CLI 路径（Reddit 桥接通道，见 [Reddit 源](#reddit-源opencli-桥接)） |
-| `AIDAILY_REDDIT_DISABLE_OPENCLI` | `false` | `1` = 跳过 opencli 桥接，直接走 Atom 兜底 |
-| `AIDAILY_REDDIT_UA` | `ai-daily/1.0 by anonymous` | Atom 兜底通道的 HTTP User-Agent（建议覆盖） |
+| 变量                                   | 默认                          | 说明                                                              |
+| ------------------------------------ | --------------------------- | --------------------------------------------------------------- |
+| `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` | —                           | X 源鉴权（x.com Cookie 值）；缺失且未开浏览器 Cookie → X 源静默跳过                 |
+| `AIDAILY_X_ALLOW_BROWSER_COOKIES`    | `false`                     | `1`/`true` 时复用本机浏览器 x.com 登录态                                   |
+| `AIDAILY_TWITTER_BIN`                | PATH 自动探测                   | `twitter` CLI 可执行文件路径                                           |
+| `AIDAILY_X_ACCOUNTS`                 | 内置 28 KOL                   | 逗号分隔的 X 用户名列表                                                   |
+| `AIDAILY_GITHUB_TOKEN`               | —                           | GitHub PAT，提升速率限制（缺失走 trending HTML）                            |
+| `AIDAILY_OPENCLI_BIN`                | PATH 自动探测                   | `opencli` CLI 路径（Reddit 桥接通道，见 [Reddit 源](#reddit-源opencli-桥接)） |
+| `AIDAILY_REDDIT_DISABLE_OPENCLI`     | `false`                     | `1` = 跳过 opencli 桥接，直接走 Atom 兜底                                 |
+| `AIDAILY_REDDIT_UA`                  | `ai-daily/1.0 by anonymous` | Atom 兜底通道的 HTTP User-Agent（建议覆盖）                                |
 
 ---
 
@@ -307,10 +307,10 @@ AIDAILY_X_ACCOUNTS=karpathy,ylecun,simonw,swyx
 
 ### 其他参数
 
-| 变量 | 说明 |
-|---|---|
-| `AIDAILY_TWITTER_BIN` | `twitter` 可执行文件路径（默认 PATH 自动探测 + Windows pip --user 目录） |
-| `AIDAILY_X_RETRY_BACKOFF_S` | 单账号失败重试间隔（默认 `0.5`） |
+| 变量                          | 说明                                                      |
+| --------------------------- | ------------------------------------------------------- |
+| `AIDAILY_TWITTER_BIN`       | `twitter` 可执行文件路径（默认 PATH 自动探测 + Windows pip --user 目录） |
+| `AIDAILY_X_RETRY_BACKOFF_S` | 单账号失败重试间隔（默认 `0.5`）                                     |
 
 ### 禁用 X 源
 
@@ -336,10 +336,10 @@ opencli doctor                      # 验证安装与浏览器连接
 
 ### 环境变量
 
-| 变量 | 说明 |
-|---|---|
-| `AIDAILY_OPENCLI_BIN` | `opencli` 可执行文件路径（默认 PATH 探测，Windows 优先找 `opencli.CMD`） |
-| `AIDAILY_REDDIT_DISABLE_OPENCLI` | `1` = 跳过桥接，直接走 Atom 兜底 |
+| 变量                               | 说明                                                      |
+| -------------------------------- | ------------------------------------------------------- |
+| `AIDAILY_OPENCLI_BIN`            | `opencli` 可执行文件路径（默认 PATH 探测，Windows 优先找 `opencli.CMD`） |
+| `AIDAILY_REDDIT_DISABLE_OPENCLI` | `1` = 跳过桥接，直接走 Atom 兜底                                  |
 
 > `twitter-cli` 与 `opencli` 出自同一作者（jackwener），鉴权思路一致：优先显式凭据，其次复用本机浏览器登录态。
 
@@ -347,11 +347,11 @@ opencli doctor                      # 验证安装与浏览器连接
 
 ## 日志
 
-| 类型 | 位置 | 格式 |
-|---|---|---|
+| 类型   | 位置                         | 格式                                               |
+| ---- | -------------------------- | ------------------------------------------------ |
 | 应用日志 | `backend/logs/aidaily.log` | JSON 每行一条；含 `ts/level/logger/message/request_id` |
-| 滚动策略 | 10 MB × 5 文件 | `RotatingFileHandler` |
-| 控制台 | stdout | 同 JSON 格式 |
+| 滚动策略 | 10 MB × 5 文件               | `RotatingFileHandler`                            |
+| 控制台  | stdout                     | 同 JSON 格式                                        |
 
 每条日志可选字段（按场景填充）：`source` / `issue_id` / `exception_type` / `user` / `module`。
 
@@ -431,8 +431,6 @@ ai-daily-news/
 ├── .github/workflows/ci.yml    # GitHub Actions CI
 ├── docker-compose.yml          # 一键部署
 ├── .env.example
-├── CONTRIBUTING.md
-├── CHANGELOG.md
 ├── LICENSE                     # MIT
 └── README.md
 ```
@@ -450,14 +448,6 @@ ai-daily-news/
 - **E2E 测试默认不在 CI 主路径**：依赖 Playwright + Chromium 下载，标记在 `tests/e2e/`，可单独触发（详见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
 - **首装自动生成需 5-10 分钟**：取决于 LLM 响应速度与各源速率限制。
 - **`/daily/today` 在 08:00 之前访问**：返回 `404 2002`，前端展示「正在翻今天的墙头」加载态，等到 08:00 触发后转 ready。
-
----
-
-## 贡献
-
-欢迎 Issue / PR。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（commit 约定、PR 流程、main 分支保护建议）。
-
-变更日志见 [CHANGELOG.md](CHANGELOG.md)（Keep a Changelog 格式）。
 
 ---
 
