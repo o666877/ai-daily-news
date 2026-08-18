@@ -11,7 +11,8 @@
 - Python 3.11.9+
 - Git 2.30+
 - （可选）Docker + Docker Compose：用于端到端联调
-- （可选）Node.js 18+：仅前端样式调试需要（前端零构建步骤，vendor JS 已 vendored）
+- （可选）Node.js：仅启用 Reddit opencli 桥接时需要（`npm install -g @jackwener/opencli`，见 README「Reddit 源」）
+- （可选）twitter-cli：仅启用 X 源时需要（`pip install twitter-cli`，见 README「X 源配置」）
 
 ### 步骤
 
@@ -105,11 +106,12 @@ Closes #21
 ```
 
 ```
-fix: handle empty AIDAILY_X_RSSHUB_BASE_URL silently
+fix: skip X source silently when twitter-cli auth is unavailable
 
-Previously a missing RSSHub URL caused the X collector to throw,
-aborting the whole pipeline. Now it returns an empty list, matching
-FR-007a partial-failure tolerance. The other 3 sources still run.
+Previously a missing TWITTER_AUTH_TOKEN caused the X collector to
+throw, aborting the whole pipeline. Now it returns an empty list,
+matching FR-007a partial-failure tolerance. The other 3 sources
+still run.
 ```
 
 ```
@@ -309,10 +311,8 @@ pytest tests/performance/ -v -m perf
 
 ## 设计文档 / 决策记录
 
-- 项目宪法：[`.specify/memory/constitution.md`](.specify/memory/constitution.md)
 - 设计 spec / contracts：[`specs/001-ai-daily-news/`](specs/001-ai-daily-news/)
 - 技术决策（D1-D9）：[`specs/001-ai-daily-news/research.md`](specs/001-ai-daily-news/research.md)
-- 路线图：[`ROADMAP.md`](ROADMAP.md)
 
 重大架构决策请通过 ADR (Architecture Decision Record) 记录，放在 `docs/adr/` 下。
 

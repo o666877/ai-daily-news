@@ -1,0 +1,40 @@
+# AI Daily News - one-command local deployment
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in AIDAILY_LLM_API_KEY (required)
+#   2. docker compose up -d
+#   3. Visit http://localhost:8000/  (first issue auto-generates within 5-10 min)
+#
+# X (Twitter) source note: the collector shells out to a local `twitter`
+# CLI, which does not exist inside the container — in Docker the X source
+# is silently skipped and github/reddit/web run normally.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aidaily-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Override DB path so the volume below maps cleanly.
+      - AIDAILY_DB_PATH=/app/data/aidaily.db
+      - AIDAILY_HOST=0.0.0.0
+    volumes:
+      # SQLite database (persisted across restarts)
+      - ./data:/app/data
+      # Structured JSON logs (RotatingFileHandler writes here)
+      - ./logs:/app/logs
+      # Frontend static assets mounted read-only so the container serves the
+      # same SPA you'd serve locally (no rebuild needed in v1).
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

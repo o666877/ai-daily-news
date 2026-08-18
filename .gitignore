@@ -89,3 +89,14 @@ nul
 2026-08-05*
 frontend/static/md-compare*
 backend/scripts/md_compare_experiment*.py
+
+# ===== Local-only docs & dev scaffolding (kept locally, not published) =====
+.claude/
+.codegraph/
+.omo/
+.specify/
+CONTEXT.md
+PRD.md
+ROADMAP.md
+ai日报-后端集成接口文档.md
+backend/scripts/

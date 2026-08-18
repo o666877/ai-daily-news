@@ -395,9 +395,6 @@ mypy backend/app
 alembic upgrade head          # 应用至最新
 alembic revision --autogenerate -m "msg"  # 生成新迁移
 
-# 手动触发一次刊期生成（开发调试用）
-python -m app.pipeline.run_once --date 2026-08-12
-
 # 启动开发服务器（热重载）
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```

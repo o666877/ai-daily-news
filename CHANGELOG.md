@@ -16,6 +16,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenAI 协议兼容 LLM provider（v1.1 规划）
 - 分享卡片 TTL 过期机制（v2 规划）
 
+### Added — v2 排序与内容增强
+
+- 评分维度扩展 `dim_engagement`（平台原始信号：GitHub star 对数压缩等），综合分权重更新（migration `004`）
+- 必读标记落库：`articles.is_must_read`（编辑 Top 3），三处读路径改读字段，不再解析 id 后缀（migration `006`）
+- 正文 Markdown 渲染：后端持久化 markdown body，前端 marked + DOMPurify 渲染（migration `005`）
+- 全局错误 toast、业务码 → UI 行为映射、401/1003 登录流与自动重试（T081-T086）
+- 信息源扩充：Reddit +`AI_Agents`/`ChatGPTCoding`；GitHub 查询重写为 5 条 topic 查询（含 continual-learning、agent-skills）；X 默认 KOL 25 → 28（+_akhaliq 等）；Web RSS +Interconnects/Lilian Weng/Eugene Yan
+
+### Added — specs/005 跨期去重 + 观点时评
+
+- 跨期去重：生成新刊前回看最近 3 期（与 72h 采集窗口对齐），按归一化 URL + 规范化 topic_id 硬排除已发布内容；重生成先删本期再装配，不自锁
+- 第五信息类型 `commentary`（观点时评）：LLM 分类提示词全面改写（不确定项归 commentary，tools 回归纯工具）；来源感知规则兜底（GITHUB→open_source，其余→commentary）
+- 设置缺键合并 `merged_bool_map`：存量设置 JSON 缺新类型键时读出补 True，避免 allow-list 过滤误杀新类型
+
+### Changed
+
+- X (Twitter) 采集由 RSSHub 改为 `twitter-cli` 子进程（Cookie 环境变量或本机浏览器登录态鉴权）
+- Reddit 采集由 PRAW 改为 `opencli` 浏览器桥接优先 + 匿名 Atom feed 自动兜底（绕开数据中心 IP 403，桥接可拿 score/评论数/正文）
+- 设置契约：`dailyCount` 收窄为 `10/15/20/30`（默认 15）；PUT 全字段必填（types 键需齐全）；前端设置面板新增「每日推送」区块（推送时间选择器 + 条数选择），修复保存缺 `dailyCount` 被 422 拒绝的问题
+
+### Removed
+
+- `styleMode` 三档阅读密度（前后端全链路，migration `008` 删列；迁移同时归一化存量越界条数 `8→10、40/50→30`）
+- 前端列表「X 分钟 / 综合 X 分」徽标、详情页维度评分徽标、原型演示文案
+- 仓库瘦身至发布结构：开发脚手架（`.claude/`、`.specify/` 等）与本地文档移出版本库；`backend/ruff.toml` 与 `pyproject.toml` 重复配置删除
+
+### Database
+
+- Alembic migrations `004`（engagement 维度）/ `005`（body markdown）/ `006`（is_must_read）/ `007`（dailyCount 15）/ `008`（删 style_mode + 枚举收窄）；`007/008` 对无内联约束的存量库做条件式 drop
+
+### Documentation
+
+- README 按真实采集方案重写（X/Reddit 章节、twitter-cli 与 opencli 安装配置指南）；移除 RSSHub/PRAW/run_once 等过时内容
+- CHANGELOG / CONTRIBUTING 对齐当前契约；CONTRIBUTING 移除对不再发布的本地文档的引用
+
 ### Added — 002 日报个性化（评分 + 数量 + 风格）
 
 **P1 — 综合评分体系**
