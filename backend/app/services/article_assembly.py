@@ -55,6 +55,7 @@ def assemble_list_item(orm: ArticleORM) -> ArticleListItem:
         src=SourceKey(orm.src),
         time=orm.time,
         readingMinutes=orm.reading_minutes,
+        publishedAt=orm.published_at,
         compositeScore=_composite(orm),
         mustRead=orm.is_must_read,
     )

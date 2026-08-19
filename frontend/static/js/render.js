@@ -6,6 +6,26 @@ import {
 import { esc, toast, ICONS } from "./ui.js";
 import { renderMarkdown } from "./markdown.js";
 
+function pad2(n) { return n < 10 ? "0" + n : String(n); }
+
+function formatPublishTime(publishedAt, fallbackTime) {
+  var d = publishedAt ? new Date(publishedAt) : null;
+  if (!d || isNaN(d.getTime())) {
+    return fallbackTime ? fallbackTime + " 收录" : "";
+  }
+  var hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  var now = new Date();
+  var startOfDay = function (x) {
+    return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  };
+  var dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+  if (dayDiff === 0) return "今天 " + hm + " 发布";
+  if (dayDiff === 1) return "昨天 " + hm + " 发布";
+  var md = pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  if (d.getFullYear() !== now.getFullYear()) return d.getFullYear() + "-" + md + " " + hm + " 发布";
+  return md + " " + hm + " 发布";
+}
+
 function renderList() {
   var el = document.getElementById("articleList");
   el.innerHTML = "";
@@ -112,7 +132,7 @@ function renderReader(a) {
       (fields.indexOf('title') >= 0 ? '<h1>' + esc(a.title) + '</h1>' : '') +
       '<div class="article-byline">' +
         '<span class="src-chip">' + (ICONS[src.icon] || "") + esc(src.name) + '</span>' +
-        '<span>今天 ' + esc(a.time || "") + ' 收录</span>' +
+        '<span>' + esc(formatPublishTime(a.publishedAt, a.time)) + '</span>' +
         '<span class="tag" data-type="' + esc(typeKey) + '">' + esc(typeName) + '</span>' +
       '</div>' +
       (fields.indexOf('excerpt') >= 0 && a.excerpt ? '<p class="item-excerpt">' + esc(a.excerpt) + '</p>' : '') +

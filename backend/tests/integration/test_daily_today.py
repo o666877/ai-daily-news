@@ -38,6 +38,7 @@ async def test_daily_today_200_ready(client: AsyncClient, ready_issue_with_artic
         "src",
         "time",
         "readingMinutes",
+        "publishedAt",
         "compositeScore",
         "mustRead",
     }

@@ -88,6 +88,9 @@ class ArticleListItem(CamelModel):
     src: SourceKey
     time: str
     readingMinutes: int
+    # Full publish timestamp (source item's original date); lets clients
+    # render a real date instead of the bare HH:mm `time` column.
+    publishedAt: str = ""
     compositeScore: int | None = None
     # True for the issue's editorial top-3, persisted at generation time
     # (articles.is_must_read). Stable across filter views — clients must

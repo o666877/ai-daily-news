@@ -67,6 +67,14 @@ def test_assemble_list_item_full_fields():
     assert item.readingMinutes == 2
 
 
+def test_assemble_list_item_includes_published_at():
+    """List items carry publishedAt so clients can render a real date."""
+    orm = _orm()
+    orm.score = None
+    item = assemble_list_item(orm)
+    assert item.publishedAt == "2026-08-17T09:00:00+00:00"
+
+
 def test_assemble_list_item_without_score_composite_null():
     orm = _orm()
     orm.score = None

@@ -38,7 +38,8 @@ GET /api/v1/daily/today
       "type": "agent",
       "src": "x",
       "time": "09:12",
-      "readingMinutes": 6
+      "readingMinutes": 6,
+      "publishedAt": "2026-08-12T09:12:00+00:00"
     }
   ]
 }
@@ -50,8 +51,9 @@ GET /api/v1/daily/today
 |---|---|
 | `issue.*` | DailyIssue 实体，详见 [data-model.md](../data-model.md#1-dailyissue刊期) |
 | `summary.byType` / `summary.bySource` | 数量徽标数据源；4 个固定 key 齐全；缺失项计为 0 |
-| `articles[]` | ArticleListItem[]；仅 7 字段（详见 [data-model.md](../data-model.md#2-article资讯条目)） |
-| `articles[].time` | 收录时间 `HH:mm`（注意：非 `time_label`） |
+| `articles[]` | ArticleListItem[]；基础字段 + `publishedAt` / `compositeScore` / `mustRead`（详见 [data-model.md](../data-model.md#2-article资讯条目)） |
+| `articles[].time` | 发布时刻 `HH:mm`（注意：非 `time_label`） |
+| `articles[].publishedAt` | 源内容完整发布时间戳（ISO 8601）；前端据此渲染真实日期，`time` 仅为其 `HH:mm` 截断 |
 
 **前端行为约束**：
 - 列表顺序由后端决定，前端不做客户端二次排序
