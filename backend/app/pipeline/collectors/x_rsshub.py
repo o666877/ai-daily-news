@@ -32,6 +32,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from app.config import get_settings
 from app.models.article import RawItem
@@ -40,7 +41,8 @@ from app.pipeline.defaults.x_accounts import get_accounts
 
 logger = logging.getLogger("aidaily.collector.x")
 
-_PER_TWEET_LIMIT = 20
+_PER_TWEET_LIMIT = 3
+FRESH_WINDOW_HOURS: float = 72.0  # aligned with reddit/web collectors
 _SUBPROCESS_TIMEOUT_S = 30
 _TEXT_MAX = 4000
 _TITLE_MAX = 80
@@ -304,17 +306,35 @@ def _parse_envelope(stdout_text: str) -> list[dict]:
 
 
 def _tweets_to_raw_items(account: str, tweets: list[dict]) -> list[RawItem]:
-    """Convert twitter-cli tweet dicts to RawItem list."""
+    """Convert twitter-cli tweet dicts to RawItem list.
+
+    Tweets published more than FRESH_WINDOW_HOURS ago are dropped (soft
+    window, same tolerance as web.py: unparseable timestamps are kept).
+    """
     items: list[RawItem] = []
-    now_iso = datetime.now(timezone.utc).isoformat()
+    dropped_stale = 0
+    now = datetime.now(tz=timezone.utc)
+    now_iso = now.isoformat()
     for tweet in tweets:
+        created = _parse_tweet_time(tweet)
+        if created is not None and (now - created).total_seconds() > FRESH_WINDOW_HOURS * 3600:
+            dropped_stale += 1
+            continue
         tid = str(tweet.get("id") or "").strip()
         text = str(tweet.get("text") or "")
+        # Prefer the parsed instant re-serialized as ISO: downstream clients
+        # `new Date(...)` it, and the raw createdAt/createdAtLocal fallbacks
+        # ("Sat Aug 12 ..." / "2026-08-12 16:00:00") parse inconsistently
+        # across browsers.
         published = (
-            tweet.get("createdAtISO")
-            or tweet.get("createdAt")
-            or tweet.get("createdAtLocal")
-            or now_iso
+            created.isoformat()
+            if created is not None
+            else (
+                tweet.get("createdAtISO")
+                or tweet.get("createdAt")
+                or tweet.get("createdAtLocal")
+                or now_iso
+            )
         )
         title = text.strip()[:_TITLE_MAX] or f"@{account}"
         url = _build_tweet_url(account, tid, tweet)
@@ -329,7 +349,44 @@ def _tweets_to_raw_items(account: str, tweets: list[dict]) -> list[RawItem]:
                 extra={"author": account, "tweet_id": tid, **_engagement_snapshot(tweet)},
             )
         )
+    if dropped_stale:
+        logger.info(
+            "x_tweets_dropped_stale",
+            extra={
+                "source": SourceKey.X.value,
+                "account": account,
+                "dropped": dropped_stale,
+                "window_hours": FRESH_WINDOW_HOURS,
+            },
+        )
     return items
+
+
+_TWITTER_TIME_FORMAT = "%a %b %d %H:%M:%S %z %Y"
+
+
+def _parse_tweet_time(tweet: dict[str, Any]) -> datetime | None:
+    """Best-effort parse of the tweet's creation timestamp; None if unknown.
+
+    Tries createdAtISO (ISO 8601), then createdAt (Twitter's own format).
+    A naive ISO value is assumed UTC.
+    """
+    iso = tweet.get("createdAtISO")
+    if isinstance(iso, str) and iso.strip():
+        try:
+            dt = datetime.fromisoformat(iso.strip().replace("Z", "+00:00"))
+        except ValueError:
+            dt = None
+        if dt is not None:
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    raw = tweet.get("createdAt")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            dt = datetime.strptime(raw.strip(), _TWITTER_TIME_FORMAT)
+        except ValueError:
+            return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return None
 
 
 def _engagement_snapshot(tweet: dict) -> dict[str, int]:

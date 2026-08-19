@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -707,8 +707,9 @@ async def test_collect_web_all_failures_returns_empty(monkeypatch):
 
 # ---------- X collector (twitter-cli subprocess) ----------
 
-def _tweet_dict(tid: str, text: str, screen_name: str = "x") -> dict:
-    """Build a twitter-cli-shaped tweet dict."""
+def _tweet_dict(tid: str, text: str, screen_name: str = "x", age_hours: float = 2.0) -> dict:
+    """Build a twitter-cli-shaped tweet dict, published `age_hours` ago (UTC)."""
+    created = datetime.now(tz=timezone.utc) - timedelta(hours=age_hours)
     return {
         "id": tid,
         "text": text,
@@ -720,9 +721,9 @@ def _tweet_dict(tid: str, text: str, screen_name: str = "x") -> dict:
             "verified": False,
         },
         "metrics": {"likes": 0, "retweets": 0, "replies": 0, "quotes": 0, "views": 0, "bookmarks": 0},
-        "createdAt": "Sat Aug 12 08:00:00 +0000 2026",
-        "createdAtISO": "2026-08-12T08:00:00+00:00",
-        "createdAtLocal": "2026-08-12 16:00:00",
+        "createdAt": created.strftime("%a %b %d %H:%M:%S +0000 %Y"),
+        "createdAtISO": created.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "createdAtLocal": created.strftime("%Y-%m-%d %H:%M:%S"),
         "media": [],
         "urls": [],
         "isRetweet": False,
@@ -866,12 +867,12 @@ async def test_collect_x_happy_path(monkeypatch):
     items = await collect_x_rsshub()
 
     assert len(items) == 6
-    # spawn args: each call uses `twitter user-posts <account> -n 20 --json`
+    # spawn args: each call uses `twitter user-posts <account> -n 3 --json`
     cli_args = install["call_log"]
     assert len(cli_args) == 2
     assert cli_args[0][1:3] == ["user-posts", "acc_a"]
     assert cli_args[1][1:3] == ["user-posts", "acc_b"]
-    assert cli_args[0][3:] == ["-n", "20", "--json"]
+    assert cli_args[0][3:] == ["-n", "3", "--json"]
 
     by_account = {"acc_a": [], "acc_b": []}
     for it in items:
@@ -883,10 +884,51 @@ async def test_collect_x_happy_path(monkeypatch):
     assert a0.sourceUrl == "https://x.com/acc_a/status/100"
     assert a0.title == "agent framework release from acc_a"[:80]
     assert a0.rawText == "agent framework release from acc_a"
-    assert a0.publishedAt == "2026-08-12T08:00:00+00:00"
+    # publishedAt mirrors the tweet's createdAtISO (fixture default: 2h ago)
+    parsed_iso = datetime.fromisoformat(a0.publishedAt)
+    age_h = (datetime.now(tz=timezone.utc) - parsed_iso).total_seconds() / 3600
+    assert 0 < age_h < 3
     assert a0.extra == {
         "author": "acc_a", "tweet_id": "100", "likes": 0, "views": 0, "retweets": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_collect_x_drops_tweets_older_than_72h(monkeypatch):
+    """Tweets published more than 72h ago are dropped at collection time."""
+    _patch_settings(monkeypatch, AIDAILY_X_ACCOUNTS="acc")
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("TWITTER_CT0", "ct0")
+
+    fresh = _tweet_dict("1", "fresh take", "acc", age_hours=1.0)
+    stale = _tweet_dict("2", "stale take from last week", "acc", age_hours=100.0)
+
+    _install_twitter_cli_stub(monkeypatch, {"acc": {"envelope": [fresh, stale]}})
+
+    from app.pipeline.collectors.x_rsshub import collect_x_rsshub
+
+    items = await collect_x_rsshub()
+    assert [i.extra["tweet_id"] for i in items] == ["1"]
+
+
+@pytest.mark.asyncio
+async def test_collect_x_tweet_without_parseable_timestamp_kept(monkeypatch):
+    """No parseable timestamp → kept (aligned with web.py's soft-window tolerance)."""
+    _patch_settings(monkeypatch, AIDAILY_X_ACCOUNTS="acc")
+    monkeypatch.setenv("TWITTER_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("TWITTER_CT0", "ct0")
+
+    undated = _tweet_dict("3", "mysterious undated tweet", "acc")
+    undated.pop("createdAtISO")
+    undated.pop("createdAt")
+    undated.pop("createdAtLocal")
+
+    _install_twitter_cli_stub(monkeypatch, {"acc": {"envelope": [undated]}})
+
+    from app.pipeline.collectors.x_rsshub import collect_x_rsshub
+
+    items = await collect_x_rsshub()
+    assert [i.extra["tweet_id"] for i in items] == ["3"]
 
 
 @pytest.mark.asyncio
