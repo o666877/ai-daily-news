@@ -14,7 +14,8 @@ Idempotent on issueId: re-entry returns existing ready issue.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from collections import Counter
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -35,6 +36,7 @@ from app.pipeline.issue_repository import (
     persist_article,
     recent_published_keys,
 )
+from app.pipeline.scorer import compose_score, score_with_rules
 
 logger = logging.getLogger("aidaily.generator")
 
@@ -49,6 +51,96 @@ ADMISSION_FLOOR = 45
 # most 3 daily issues, so one appearance anywhere in the last 3 issues
 # excludes a candidate from all later issues — no more, no less.
 CROSS_ISSUE_LOOKBACK = 3
+
+
+def _rule_proxy_score(raw: RawItem) -> int:
+    """LLM-free composite for pre-LLM gating.
+
+    Reuses the rule-fallback scorer's four deterministic dims (authority /
+    timeliness / engagement / depth; expression pinned at neutral 50). The
+    proxy cannot see expression quality — that residual is exactly the
+    gate's accepted error, measured via the issue_funnel log.
+    """
+    dims = score_with_rules(
+        source_name=raw.sourceName,
+        published_at=raw.publishedAt,
+        raw_text=raw.rawText,
+        source_key=raw.sourceKey.value,
+        extra=raw.extra,
+    )
+    return compose_score(
+        {
+            "authority": dims["dim_authority"],
+            "depth": dims["dim_depth"],
+            "timeliness": dims["dim_timeliness"],
+            # Pinned to the neutral literal on purpose: if the rule scorer
+            # ever computes a real expression dim, the gate must still see
+            # the spec'd neutral value until the calibration data says so.
+            "expression": 50,
+            "engagement": dims["dim_engagement"],
+        }
+    )
+
+
+def _gate_for_llm(
+    raw_items: list[RawItem],
+    sources_allowed: list[str],
+    daily_count: int,
+) -> tuple[list[RawItem], dict[str, Any]]:
+    """Pre-LLM gate: source settings filter + per-source rule-score quota.
+
+    1. Items whose source is disabled in settings are dropped before any
+       LLM spend (type-level filtering still happens post-LLM — effective
+       type needs the LLM's override).
+    2. Each enabled source keeps its top `daily_count` items by rule proxy
+       score; leftovers backfill globally (score order) up to
+       len(sources_allowed) × daily_count total.
+
+    Returns (gated items in original collection order, funnel stats).
+    """
+    collected_by_source = Counter(
+        raw.sourceKey.value for raw in raw_items
+    )
+    src_allow = set(sources_allowed)
+    enabled = [raw for raw in raw_items if raw.sourceKey.value in src_allow]
+    source_filtered = len(raw_items) - len(enabled)
+
+    # Decorate with (proxy_score, collection_index); sorts below are stable
+    # so equal scores keep collection order.
+    scored = [(_rule_proxy_score(raw), i, raw) for i, raw in enumerate(enabled)]
+    quota = daily_count
+    total_cap = len(src_allow) * quota
+
+    kept: list[tuple[int, int, RawItem]] = []
+    leftovers: list[tuple[int, int, RawItem]] = []
+    by_source: dict[str, list[tuple[int, int, RawItem]]] = {}
+    for item in scored:
+        by_source.setdefault(item[2].sourceKey.value, []).append(item)
+    for items in by_source.values():
+        ranked = sorted(items, key=lambda t: -t[0])
+        kept.extend(ranked[:quota])
+        leftovers.extend(ranked[quota:])
+
+    if len(kept) < total_cap and leftovers:
+        leftovers.sort(key=lambda t: -t[0])
+        kept.extend(leftovers[: total_cap - len(kept)])
+
+    gated = [raw for _, _, raw in sorted(kept, key=lambda t: t[1])]
+    # Recompute per-source pass counts: backfilled items count towards
+    # their own source (a source may exceed `quota` via global backfill).
+    final_by_source = Counter(raw.sourceKey.value for raw in gated)
+    stats: dict[str, Any] = {
+        "collected": len(raw_items),
+        "collected_by_source": collected_by_source,
+        "source_filtered": source_filtered,
+        "gate_quota": quota,
+        "gate_passed_by_source": final_by_source,
+        "gate_dropped": len(enabled) - len(gated),
+        # Not funnel material: proxy scores of every enabled item, keyed by
+        # URL. Popped by generate_issue to build the proxy-vs-LLM pairs.
+        "proxy_by_url": {raw.sourceUrl: score for score, _, raw in scored},
+    }
+    return gated, stats
 
 
 def _issue_id(date: datetime) -> str:
@@ -192,7 +284,7 @@ async def generate_issue(
     Only surviving articles are persisted with the current issue_id;
     excluded ones are dropped entirely.
     """
-    target = date or datetime.now(timezone.utc)
+    target = date or datetime.now(UTC)
     issue_id = _issue_id(target)
     date_iso = target.strftime("%Y-%m-%d")
     factory = get_session_factory()
@@ -224,12 +316,20 @@ async def generate_issue(
         else:
             raw_items = await collect_all()
 
+        # Pre-LLM gate: disabled sources never spend tokens; each enabled
+        # source keeps its top `daily_count` by rule proxy score (global
+        # backfill up to len(enabled) × daily_count total).
+        gated_items, gate_stats = _gate_for_llm(
+            raw_items, snapshot["sources"], daily_count
+        )
+        proxy_by_url: dict[str, int] = gate_stats.pop("proxy_by_url", {})
+
         # Summarize per item with FR-007a tolerance (single failures skipped).
         # Hold (raw, summary_fields) pairs in memory; persist only after dedup+truncate.
         candidates: list[tuple[RawItem, Any]] = []
         summarizer_failures = 0
         web_failures = 0
-        for raw in raw_items:
+        for raw in gated_items:
             try:
                 summary_fields = await summarizer.summarize_item(
                     raw, client=llm_client
@@ -280,9 +380,11 @@ async def generate_issue(
         )
 
         # US2 T030: three-layer dedup → top-N truncate → persist survivors.
+        select_stats: dict[str, Any] = {}
         selected: list[tuple[RawItem, Any]] = _select_for_issue(
             candidates, daily_count,
             published_urls=published_urls, published_topics=published_topics,
+            stats_out=select_stats,
         )
         for idx, (raw, summary_fields) in enumerate(selected, start=1):
             await persist_article(session, issue_id, idx, raw, summary_fields)
@@ -305,6 +407,46 @@ async def generate_issue(
         all_failed = bool(raw_items) and not candidates
         finalize_issue(issue_orm, failed=all_failed)
         await session.commit()
+
+        # Single funnel event: numbers ride in the message itself so any
+        # logging handler (incl. regen_today's basicConfig stdout) shows
+        # them; extras carry the same data structured.
+        funnel = {
+            **gate_stats,
+            "summarized_ok": len(candidates),
+            "summarize_failed": summarizer_failures,
+            "web_summarize_failed": web_failures,
+            **select_stats,
+            "selected": len(selected),
+        }
+        logger.info(
+            "issue_funnel"
+            f" collected={funnel['collected']}"
+            f" source_filtered={funnel['source_filtered']}"
+            f" gate_dropped={funnel['gate_dropped']}"
+            f" summarized_ok={funnel['summarized_ok']}"
+            f" summarize_failed={funnel['summarize_failed']}"
+            f" web_summarize_failed={funnel['web_summarize_failed']}"
+            f" cross_issue_excluded={funnel.get('cross_issue_excluded', 0)}"
+            f" in_issue_dedup={funnel.get('in_issue_dedup', 0)}"
+            f" below_floor={funnel.get('below_floor', 0)}"
+            f" truncated={funnel.get('truncated', 0)}"
+            f" selected={funnel['selected']}",
+            extra={
+                "issue_id": issue_id,
+                **funnel,
+                # Proxy-vs-LLM pairs for the selected items: lets one issue's
+                # log quantify how well the gate's rule score tracks the real
+                # composite (gate calibration data).
+                "proxy_vs_llm": [
+                    [
+                        proxy_by_url.get(raw.sourceUrl),
+                        getattr(summary_fields, "composite_score", None),
+                    ]
+                    for raw, summary_fields in selected
+                ],
+            },
+        )
         return issue_orm
 
 
@@ -314,6 +456,7 @@ def _select_for_issue(
     *,
     published_urls: set[str] | None = None,
     published_topics: set[str] | None = None,
+    stats_out: dict[str, Any] | None = None,
 ) -> list[tuple[RawItem, Any]]:
     """Apply US2 dedup + diversity-aware truncate to summarized candidates.
 
@@ -322,9 +465,16 @@ def _select_for_issue(
 
     Returns the (raw, summary_fields) pairs that should be persisted under the
     current issue_id, in display order (highest composite_score first, with a
-    per-type quota so one type cannot crowd out the rest).
+    per-type quota so one type cannot crowd out the rest). When `stats_out`
+    is given, stage counts (cross_issue_excluded / in_issue_dedup /
+    below_floor / truncated) are written into it for the funnel log.
     """
     if not candidates:
+        if stats_out is not None:
+            stats_out.update(
+                {"cross_issue_excluded": 0, "in_issue_dedup": 0,
+                 "below_floor": 0, "truncated": 0}
+            )
         return []
     # Decorate each candidate with the dedup keys + a stable idx.
     items: list[dict] = []
@@ -345,16 +495,30 @@ def _select_for_issue(
             }
         )
     if published_urls or published_topics:
+        before_exclude = len(items)
         items = exclude_published(items, published_urls or set(), published_topics or set())
+        cross_excluded = before_exclude - len(items)
+    else:
+        cross_excluded = 0
     deduped = dedup_candidates(items)
+    in_issue_dedup = len(items) - len(deduped)
     admitted = [it for it in deduped if it["compositeScore"] >= ADMISSION_FLOOR]
-    dropped = len(deduped) - len(admitted)
-    if dropped:
+    below_floor = len(deduped) - len(admitted)
+    if below_floor:
         logger.info(
             "candidates_below_admission_floor",
-            extra={"dropped": dropped, "floor": ADMISSION_FLOOR},
+            extra={"dropped": below_floor, "floor": ADMISSION_FLOOR},
         )
     top = truncate_diverse(admitted, daily_count)
+    if stats_out is not None:
+        stats_out.update(
+            {
+                "cross_issue_excluded": cross_excluded,
+                "in_issue_dedup": in_issue_dedup,
+                "below_floor": below_floor,
+                "truncated": len(admitted) - len(top),
+            }
+        )
     # Map surviving idx back to (raw, summary_fields) pairs, preserving
     # the descending-composite order produced by truncate_top_n.
     by_idx = {item["idx"]: (candidates[item["idx"]][0], candidates[item["idx"]][1])
