@@ -89,6 +89,7 @@ nul
 2026-08-05*
 frontend/static/md-compare*
 backend/scripts/md_compare_experiment*.py
+backup_issue_*.json
 
 # ===== Local-only docs & dev scaffolding (kept locally, not published) =====
 .claude/
@@ -102,3 +103,4 @@ CHANGELOG.md
 CONTRIBUTING.md
 ai日报-后端集成接口文档.md
 backend/scripts/
+specs/
