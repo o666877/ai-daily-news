@@ -6,6 +6,8 @@
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![AI 日报 · 今日刊阅读页](assets/screenshot.png)
+
 ---
 
 ## 项目简介
@@ -17,10 +19,6 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 - **偏好配置**：信息源/类型开关、日报条数（10/15/20/30）、推送时间，下一期自动生效
 - **分享卡片**：一键生成可公开的卡片链接
 - **首装自动触发**：第一次启动无需等到次日，5-10 分钟内出首期
-
-### 界面预览
-
-![AI 日报 · 今日刊阅读页](assets/screenshot.png)
 
 ### 信息源 & 类型
 
