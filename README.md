@@ -18,6 +18,10 @@ AI 日报系统面向 AI 开发者、研究者与重度爱好者，每日 08:00 
 - **分享卡片**：一键生成可公开的卡片链接
 - **首装自动触发**：第一次启动无需等到次日，5-10 分钟内出首期
 
+### 界面预览
+
+![AI 日报 · 今日刊阅读页](assets/screenshot.png)
+
 ### 信息源 & 类型
 
 | Source (`src`)                                      | Type (`type`)                |
@@ -78,6 +82,7 @@ ai-daily-news/
 │       ├── icons/              # SVG 图标
 │       ├── marked.min.js       # Markdown 渲染（vendor）
 │       └── purify.min.js       # HTML 消毒（vendor）
+├── assets/                     # 仓库内图片资源（README 配图等）
 ├── specs/001-ai-daily-news/    # 设计文档（contracts/plan/research/...）
 ├── .github/workflows/ci.yml    # GitHub Actions CI
 ├── docker-compose.yml          # 一键部署
