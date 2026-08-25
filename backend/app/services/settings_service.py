@@ -12,16 +12,20 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infra.errors import ValidationError as BizValidationError
 from app.models.meta import SOURCE_KEYS, TYPE_KEYS
 from app.models.settings import (
     DailyPush,
+    ImPush,
+    ImPushWebhook,
     SettingsIn,
     SettingsORM,
     SettingsOut,
     default_settings,
+    mask_webhook_url,
     merged_bool_map,
+    resolve_im_push,
 )
-
 
 SHANGHAI_TZ = timezone(timedelta(hours=8))
 
@@ -31,6 +35,15 @@ def compute_effective_at(now: datetime | None = None) -> str:
     base = (now or datetime.now(SHANGHAI_TZ)).astimezone(SHANGHAI_TZ)
     next_day = base + timedelta(days=1)
     return next_day.strftime("%Y%m%d")
+
+
+def _masked_im_push(raw: dict | None) -> ImPush:
+    """Stored im_push → output model with webhook urls masked (specs/006)."""
+    im = ImPush.model_validate(dict(raw or {}))
+    masked = [
+        ImPushWebhook(name=w.name, url=mask_webhook_url(w.url)) for w in im.webhooks
+    ]
+    return im.model_copy(update={"webhooks": masked})
 
 
 def _row_to_out(orm: SettingsORM) -> SettingsOut:
@@ -43,6 +56,7 @@ def _row_to_out(orm: SettingsORM) -> SettingsOut:
             time=str(dp.get("time", "08:00")),
         ),
         dailyCount=orm.daily_count,
+        imPush=_masked_im_push(orm.im_push),
         updatedAt=orm.updated_at.isoformat() + "Z" if orm.updated_at else None,
     )
 
@@ -66,6 +80,7 @@ class SettingsService:
                 sources=defaults["sources"],
                 types=defaults["types"],
                 daily_push=defaults["daily_push"],
+                im_push=defaults["im_push"],
                 daily_count=defaults["daily_count"],
                 updated_at=None,
             )
@@ -86,6 +101,10 @@ class SettingsService:
             "time": payload.dailyPush.time,
         }
         orm.daily_count = payload.dailyCount
+        try:
+            orm.im_push = resolve_im_push(payload.imPush, orm.im_push)
+        except ValueError as exc:
+            raise BizValidationError(str(exc)) from exc
         orm.updated_at = datetime.utcnow()
         await self._session.flush()
         await self._session.commit()
@@ -97,6 +116,7 @@ class SettingsService:
         orm.sources = defaults["sources"]
         orm.types = defaults["types"]
         orm.daily_push = defaults["daily_push"]
+        orm.im_push = defaults["im_push"]
         orm.daily_count = defaults["daily_count"]
         orm.updated_at = datetime.utcnow()
         await self._session.flush()
