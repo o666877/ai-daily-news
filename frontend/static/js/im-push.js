@@ -6,10 +6,13 @@
 
 import { state } from "./state.js";
 import { esc, toast } from "./ui.js";
-import { imPushStatusApi, imPushRepushApi, imPushTestApi } from "./api.js";
-import { buildSettingsBody, saveSettingsBody } from "./actions.js";
+import { imPushStatusApi, imPushRepushApi, imPushTestApi, saveSettings } from "./api.js";
+import { buildSettingsBody, promptForToken } from "./actions.js";
 
 var MAX_WEBHOOKS = 5;
+var TEST_RESET_MS = 3500;
+/* 前后端校验镜像:与 backend/app/models/settings.py 的 WECOM_WEBHOOK_MASKED_RE /
+ * WECOM_WEBHOOK_URL_RE 保持一致,改规则需两处同步。 */
 var MASKED_URL_RE = /^https:\/\/qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=\*{4}[0-9A-Za-z-]{0,4}$/;
 var FULL_URL_RE = /^https:\/\/qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=[0-9A-Za-z-]{8,64}$/;
 
@@ -78,7 +81,7 @@ function handleAddWebhook() {
     return;
   }
   syncRowsIntoState();
-  state.imPush.webhooks.push({ name: "", url: "" });
+  state.imPush.webhooks = state.imPush.webhooks.concat([{ name: "", url: "" }]);
   renderWebhookRows();
   var rows = document.querySelectorAll("#imWebhookList .im-hook-row");
   var last = rows[rows.length - 1];
@@ -86,8 +89,9 @@ function handleAddWebhook() {
 }
 
 function handleDeleteWebhook(row) {
-  row.remove();
   syncRowsIntoState();
+  var idx = parseInt(row.dataset.hookIndex, 10);
+  state.imPush.webhooks = state.imPush.webhooks.filter(function (_, i) { return i !== idx; });
   renderWebhookRows();
 }
 
@@ -114,25 +118,25 @@ function handleTestWebhook(row) {
   var invalid = validateImPushLocal();
   if (invalid) { toast(invalid); return; }
   if (btn) { btn.disabled = true; btn.textContent = "测试中…"; }
-  saveForTest()
+  saveSettings(buildSettingsBody())
     .then(function () { return imPushTestApi(name); })
     .then(function (r) {
       if (btn) {
         btn.textContent = r.ok ? "✓ 成功" : "✗ 失败";
         btn.title = r.ok ? "测试消息已送达" : ("失败:" + (r.errmsg || ("errcode " + r.errcode)));
-        setTimeout(function () { if (btn) { btn.textContent = "测试"; btn.disabled = false; } }, 3500);
+        setTimeout(function () { if (btn) { btn.textContent = "测试"; btn.disabled = false; } }, TEST_RESET_MS);
       }
       toast(r.ok ? "测试消息已发送到「" + name + "」,请到群里确认" : "测试失败:" + (r.errmsg || ("errcode " + r.errcode)));
       refreshImPushStatus();
     })
     .catch(function (e) {
       if (btn) { btn.textContent = "测试"; btn.disabled = false; }
+      if (e.needAuth || e.code === 1003) {
+        promptForToken(function () { handleTestWebhook(row); }); // Token 有效后自动重试
+        return;
+      }
       toast("测试失败:" + e.message);
     });
-}
-
-function saveForTest() {
-  return saveSettingsBody(buildSettingsBody());
 }
 
 /* ═══ 状态区 + 重推(ticket 04) ═══ */

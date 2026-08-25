@@ -133,10 +133,6 @@ function buildSettingsBody() {
   };
 }
 
-function saveSettingsBody(body) {
-  return saveSettings(body);
-}
-
 function handleApplySettings() {
   var body = buildSettingsBody(); // 先收集 DOM(含 imPush 行)再校验
   var invalid = validateImPushLocal();
@@ -213,5 +209,5 @@ export {
   syncChips, applyToggles, selectFirstIfNone, loadArticleIntoReader,
   refetchByFilters, applyTogglesToUI, handleOpenSettings, handleApplySettings,
   handleResetSettings, promptForToken, handleShare,
-  buildSettingsBody, saveSettingsBody
+  buildSettingsBody
 };
