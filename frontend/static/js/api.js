@@ -101,8 +101,16 @@ function imPushRepushApi(issueId) {
   return api("/daily/issues/" + encodeURIComponent(issueId) + "/im-push", { method: "POST" });
 }
 
+function imPushTestApi(name) {
+  return api("/settings/im-push/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name })
+  });
+}
+
 export {
   fetchToday, fetchArticles, fetchArticle, fetchSettings, saveSettings,
   resetSettingsApi, shareArticleApi, getToken, setToken, clearToken,
-  imPushStatusApi, imPushRepushApi
+  imPushStatusApi, imPushRepushApi, imPushTestApi
 };

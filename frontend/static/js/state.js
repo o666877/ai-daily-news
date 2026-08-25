@@ -33,7 +33,8 @@ var state = {
   byId: {},
   issueId: null,
   dailyCount: 15,
-  pushTime: "08:00"
+  pushTime: "08:00",
+  imPush: { enabled: false, topN: 5, linkBaseUrl: "", webhooks: [] }
 };
 
 function typeToBackend(k) { return TYPE_TO_BACKEND[k] || k; }

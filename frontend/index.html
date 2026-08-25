@@ -333,6 +333,13 @@
   .im-push-fail span { color: #b42318; }
   .im-push-none span { color: var(--ink-muted); }
   .im-push-err { color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .im-hook-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .im-hook-row { display: flex; align-items: center; gap: 6px; }
+  .im-hook-row .im-hook-name { width: 110px; flex: none; }
+  .im-hook-row .im-hook-url, .im-link-base { flex: 1; min-width: 0; }
+  .im-hook-row .im-hook-test { flex: none; }
+  .im-hook-row .im-hook-del { flex: none; padding: 6px 10px; }
+  .im-link-base { margin-top: 6px; }
 
   /* ── 状态：加载 ───────────────────────── */
   .skeleton-list { display: flex; flex-direction: column; }
@@ -392,6 +399,11 @@
   }
   .time-input:disabled { opacity: 0.45; cursor: not-allowed; }
   .time-input:focus-visible { outline: var(--focus-ring); }
+  input[type="text"].im-hook-name, input[type="text"].im-hook-url {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: var(--surface);
+  }
+  input[type="text"].im-hook-name:focus-visible, input[type="text"].im-hook-url:focus-visible { outline: var(--focus-ring); }
 </style>
 </head>
 <body>
@@ -550,6 +562,23 @@
     </section>
     <section class="settings-section" id="imPushSection">
       <h3>企微推送</h3>
+      <div class="switch-row">
+        <div class="switch-label">推送开关<small>开启后每期日报就绪即自动推送到企微群</small></div>
+        <label class="switch"><input type="checkbox" id="imPushEnabled"><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">推送条数<small>消息里展示的当期最高分条目数</small></div>
+        <select id="imTopN" class="time-input" aria-label="推送条数">
+          <option>3</option><option>4</option><option selected>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+      </div>
+      <div class="switch-row">
+        <div class="switch-label">日报链接基地址<small>手机可访问的地址(公网域名或内网穿透);留空则推送不带链接</small></div>
+        <input type="text" id="imLinkBase" class="im-hook-url im-link-base" placeholder="https://your-domain.example.com" aria-label="日报链接基地址">
+      </div>
+      <div class="im-hook-list" id="imWebhookList" aria-label="企微群机器人列表"></div>
+      <button class="btn btn-ghost" id="imAddWebhook" type="button">+ 添加群机器人</button>
       <div id="imPushStatusList" class="im-push-status" aria-live="polite">
         <p class="im-push-row im-push-none">加载中…</p>
       </div>

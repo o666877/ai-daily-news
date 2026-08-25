@@ -2,7 +2,9 @@
 
 import { state, typeFromBackend } from "./state.js";
 import { toast } from "./ui.js";
-import { refreshImPushStatus } from "./im-push.js";
+import {
+  refreshImPushStatus, applyImPushToUI, collectImPushFromUI, validateImPushLocal
+} from "./im-push.js";
 import {
   fetchArticles, fetchArticle, fetchSettings, saveSettings,
   resetSettingsApi, shareArticleApi, getToken, setToken, clearToken
@@ -108,25 +110,40 @@ function handleOpenSettings() {
 }
 
 function loadSettingsIntoPanel(d) {
-  fetchSettings().then(function (s) { syncTogglesFromSettings(s); applyTogglesToUI(); })
-    .catch(function (e) {
-      if (e.code === 1003) {
-        d.close();
-        promptForToken(function () { d.showModal(); loadSettingsIntoPanel(d); });
-      }
-      else { toast("加载设置失败：" + e.message); }
-    });
+  fetchSettings().then(function (s) {
+    syncTogglesFromSettings(s); applyTogglesToUI();
+    applyImPushToUI(s.imPush);
+  }).catch(function (e) {
+    if (e.code === 1003) {
+      d.close();
+      promptForToken(function () { d.showModal(); loadSettingsIntoPanel(d); });
+    }
+    else { toast("加载设置失败：" + e.message); }
+  });
 }
 
-function handleApplySettings() {
+function buildSettingsBody() {
   readTogglesFromUI();
-  var body = {
+  return {
     sources: { x: state.toggles.x, github: state.toggles.github, reddit: state.toggles.reddit, web: state.toggles.web },
     types: { agent: state.toggles.agent, self_improve: state.toggles["self-improve"], open_source: state.toggles["open-source"], tools: state.toggles.tools, commentary: state.toggles.commentary },
     dailyPush: { enabled: state.toggles.dailyPush, time: state.pushTime || "08:00" },
-    dailyCount: state.dailyCount || 15
+    dailyCount: state.dailyCount || 15,
+    imPush: collectImPushFromUI()
   };
-  saveSettings(body).then(function (r) {
+}
+
+function saveSettingsBody(body) {
+  return saveSettings(body);
+}
+
+function handleApplySettings() {
+  var body = buildSettingsBody(); // 先收集 DOM(含 imPush 行)再校验
+  var invalid = validateImPushLocal();
+  if (invalid) { toast(invalid); return; }
+  saveSettingsBody(body).then(function (r) {
+    applyImPushToUI(r.body && r.body.imPush); // 新增 webhook 的完整 URL 回读为脱敏形式
+    refreshImPushStatus();
     document.getElementById("settingsDialog").close();
     toast("已保存 · 生效刊期：" + (r.effectiveAt || "下一期"));
     refetchByFilters();
@@ -143,7 +160,9 @@ function handleApplySettings() {
 function handleResetSettings() {
   resetSettingsApi().then(function (s) {
     syncTogglesFromSettings(s); applyTogglesToUI();
-    toast("已恢复默认偏好");
+    applyImPushToUI(s.imPush);
+    refreshImPushStatus();
+    toast("已恢复默认偏好(企微推送配置一并清空)");
     refetchByFilters();
   }).catch(function (e) {
     if (e.code === 1003) { document.getElementById("settingsDialog").close(); promptForToken(); return; }
@@ -193,5 +212,6 @@ function handleShare(articleId) {
 export {
   syncChips, applyToggles, selectFirstIfNone, loadArticleIntoReader,
   refetchByFilters, applyTogglesToUI, handleOpenSettings, handleApplySettings,
-  handleResetSettings, promptForToken, handleShare
+  handleResetSettings, promptForToken, handleShare,
+  buildSettingsBody, saveSettingsBody
 };

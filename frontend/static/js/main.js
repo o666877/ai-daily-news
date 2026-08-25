@@ -11,7 +11,7 @@ import {
   loadArticleIntoReader, handleOpenSettings, handleApplySettings,
   handleResetSettings, handleShare
 } from "./actions.js";
-import { handleRepush } from "./im-push.js";
+import { handleRepush, handleAddWebhook, handleDeleteWebhook, handleTestWebhook } from "./im-push.js";
 
 /* ═══ 事件绑定 ═══ */
 document.querySelectorAll("#typeFilters .chip").forEach(function (c) {
@@ -67,6 +67,13 @@ document.querySelector("[data-toggle='dailyPush']").addEventListener("change", f
 document.getElementById("resetSettings").addEventListener("click", handleResetSettings);
 document.getElementById("applySettings").addEventListener("click", handleApplySettings);
 document.getElementById("repushImPush").addEventListener("click", handleRepush);
+document.getElementById("imAddWebhook").addEventListener("click", handleAddWebhook);
+document.getElementById("imWebhookList").addEventListener("click", function (e) {
+  var row = e.target.closest(".im-hook-row");
+  if (!row) return;
+  if (e.target.closest(".im-hook-del")) handleDeleteWebhook(row);
+  if (e.target.closest(".im-hook-test")) handleTestWebhook(row);
+});
 
 /* ═══ 日期 ═══ */
 (function () {
