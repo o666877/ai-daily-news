@@ -43,6 +43,12 @@ def _isolated_settings(monkeypatch, tmp_path):
     # browser-bridge subprocesses (slow, flaky, network-dependent). Tests
     # that exercise the bridge mock reddit_opencli functions directly.
     monkeypatch.setenv("AIDAILY_REDDIT_DISABLE_OPENCLI", "1")
+    # Rate limiters are module-level globals; without a reset their counters
+    # leak across tests and later write endpoints start failing with 429.
+    from app.infra.ratelimit import read_limiter, write_limiter
+
+    read_limiter.reset()
+    write_limiter.reset()
     reset_settings_cache()
     # Reset DB engine cache so new settings apply.
     db_module._engine = None
