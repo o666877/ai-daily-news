@@ -408,6 +408,13 @@ async def generate_issue(
         finalize_issue(issue_orm, failed=all_failed)
         await session.commit()
 
+        # specs/006: issue 就绪即推送(任何生成入口;幂等重入在早退路径,
+        # 不会到这里)。推送是尽力而为,内部自吞异常,不影响 issue 状态。
+        if issue_orm.status == IssueStatus.READY.value:
+            from app.pipeline.im_push import dispatch_daily_push
+
+            await dispatch_daily_push(issue_id)
+
         # Single funnel event: numbers ride in the message itself so any
         # logging handler (incl. regen_today's basicConfig stdout) shows
         # them; extras carry the same data structured.

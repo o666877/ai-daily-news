@@ -71,6 +71,19 @@ class TestImPushValidation:
         with pytest.raises(ValidationError):
             ImPush(webhooks=hooks)
 
+    def test_duplicate_names_rejected(self) -> None:
+        # name 是推送记录/防重键,重名必须在校验边界拒绝
+        with pytest.raises(ValidationError, match="重复"):
+            ImPush(
+                webhooks=[
+                    {"name": "main", "url": FULL_URL},
+                    {
+                        "name": "main",
+                        "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=wxyz9876abcd4321",
+                    },
+                ]
+            )
+
     @pytest.mark.parametrize("name", ["", "x" * 21])
     def test_name_length_rejected(self, name: str) -> None:
         with pytest.raises(ValidationError):

@@ -118,6 +118,10 @@ class ImPush(CamelModel):
     def _validate_webhooks(cls, v: list[ImPushWebhook]) -> list[ImPushWebhook]:
         if len(v) > MAX_WEBHOOKS:
             raise ValueError(f"imPush.webhooks 最多 {MAX_WEBHOOKS} 个")
+        # name 是推送记录与防重的键,重名会让记录无法区分、防重误判。
+        names = [w.name for w in v]
+        if len(names) != len(set(names)):
+            raise ValueError("imPush.webhooks 存在重复 name,请保持唯一")
         return v
 
 

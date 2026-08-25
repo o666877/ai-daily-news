@@ -7,8 +7,8 @@ metadata registration (init_db) and code access.
 from app.models._base import CamelModel
 from app.models.article import (
     Article,
-    ArticleORM,
     ArticleListItem,
+    ArticleORM,
     RawItem,
 )
 from app.models.article_score import ArticleScoreORM
@@ -18,10 +18,11 @@ from app.models.daily_issue import (
     DailyIssueSummary,
     IssueStatus,
 )
+from app.models.im_push_log import ImPushLogORM
 from app.models.meta import (
     SOURCE_KEYS,
-    TYPE_KEYS,
     SOURCES,
+    TYPE_KEYS,
     TYPES,
     MetaOut,
     Source,
@@ -51,6 +52,7 @@ __all__ = [
     "DailyIssueSummary",
     "DailyPush",
     "IssueStatus",
+    "ImPushLogORM",
     "MetaOut",
     "SOURCES",
     "SOURCE_KEYS",
