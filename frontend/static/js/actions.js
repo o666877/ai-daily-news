@@ -2,6 +2,7 @@
 
 import { state, typeFromBackend } from "./state.js";
 import { toast } from "./ui.js";
+import { refreshImPushStatus } from "./im-push.js";
 import {
   fetchArticles, fetchArticle, fetchSettings, saveSettings,
   resetSettingsApi, shareArticleApi, getToken, setToken, clearToken
@@ -103,6 +104,7 @@ function handleOpenSettings() {
   var d = document.getElementById("settingsDialog");
   d.showModal();
   loadSettingsIntoPanel(d);
+  refreshImPushStatus();
 }
 
 function loadSettingsIntoPanel(d) {

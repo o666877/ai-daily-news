@@ -325,6 +325,14 @@
   .switch input:focus-visible + .track { box-shadow: var(--focus-ring); }
   .switch input:disabled + .track { opacity: 0.4; }
   .settings-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); }
+  .im-push-status { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+  .im-push-row { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 13px; }
+  .im-push-row strong { min-width: 72px; }
+  .im-push-row small { color: var(--ink-muted); }
+  .im-push-ok span { color: #1a7f37; }
+  .im-push-fail span { color: #b42318; }
+  .im-push-none span { color: var(--ink-muted); }
+  .im-push-err { color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
 
   /* ── 状态：加载 ───────────────────────── */
   .skeleton-list { display: flex; flex-direction: column; }
@@ -539,6 +547,13 @@
           <label class="radio-pill"><input type="radio" name="dailyCount" value="30"> 30</label>
         </div>
       </div>
+    </section>
+    <section class="settings-section" id="imPushSection">
+      <h3>企微推送</h3>
+      <div id="imPushStatusList" class="im-push-status" aria-live="polite">
+        <p class="im-push-row im-push-none">加载中…</p>
+      </div>
+      <button class="btn btn-ghost" id="repushImPush" type="button">重新推送当期</button>
     </section>
   </div>
   <div class="settings-foot">

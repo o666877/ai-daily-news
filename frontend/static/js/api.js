@@ -93,7 +93,16 @@ function shareArticleApi(articleId) {
   });
 }
 
+function imPushStatusApi(issueId) {
+  return api("/daily/issues/" + encodeURIComponent(issueId) + "/im-push");
+}
+
+function imPushRepushApi(issueId) {
+  return api("/daily/issues/" + encodeURIComponent(issueId) + "/im-push", { method: "POST" });
+}
+
 export {
   fetchToday, fetchArticles, fetchArticle, fetchSettings, saveSettings,
-  resetSettingsApi, shareArticleApi, getToken, setToken, clearToken
+  resetSettingsApi, shareArticleApi, getToken, setToken, clearToken,
+  imPushStatusApi, imPushRepushApi
 };
