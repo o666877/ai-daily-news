@@ -55,6 +55,7 @@ _CODE_TO_HTTP: dict[int, int] = {
     2001: 404,
     2002: 404,
     2003: 409,
+    2004: 404,
     9001: 500,
     9002: 503,
 }
@@ -123,6 +124,11 @@ class IssueNotGeneratedError(AppException):
 class IssueGeneratingError(AppException):
     code = 2003
     message = "今日刊正在生成中"
+
+
+class WebhookNotFoundError(AppException):
+    code = 2004
+    message = "webhook 不存在"
 
 
 class InternalError(AppException):
@@ -228,5 +234,6 @@ __all__ = [
     "RateLimitError",
     "UnauthorizedError",
     "ValidationError",
+    "WebhookNotFoundError",
     "register_exception_handlers",
 ]

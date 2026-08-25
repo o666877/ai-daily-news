@@ -25,6 +25,7 @@ from app import __version__
 from app.api.articles import router as articles_router
 from app.api.daily import router as daily_router
 from app.api.healthz import router as healthz_router
+from app.api.im import router as im_router
 from app.api.meta import router as meta_router
 from app.api.settings import router as settings_router
 from app.api.share import api_router as share_api_router, page_router as share_page_router
@@ -151,6 +152,7 @@ def create_app() -> FastAPI:
     app.include_router(articles_router)
     app.include_router(meta_router)
     app.include_router(settings_router)
+    app.include_router(im_router)
     app.include_router(healthz_router)
     app.include_router(share_api_router)
     app.include_router(share_page_router)

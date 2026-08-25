@@ -6,6 +6,7 @@ regardless of the host TZ — the daily issue batches run at 00:00 CST.
 
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -129,6 +130,15 @@ class SettingsService:
         sources = [k for k, v in merged_bool_map(orm.sources, SOURCE_KEYS).items() if v]
         types = [k for k, v in merged_bool_map(orm.types, TYPE_KEYS).items() if v]
         return sources, types
+
+    async def get_im_push_raw(self) -> dict:
+        """Stored im_push dict with FULL webhook urls (specs/006).
+
+        Caller-side secret: never log, never echo into API responses.
+        Deep copy so callers can't mutate the ORM-cached state.
+        """
+        orm = await self._get_row()
+        return copy.deepcopy(dict(orm.im_push or {}))
 
 
 __all__ = ["SettingsService", "compute_effective_at"]

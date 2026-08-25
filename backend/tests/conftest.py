@@ -38,6 +38,8 @@ def _isolated_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("AIDAILY_DAILY_PUSH_TIME", "08:00")
     # X collector: zero retry backoff so failure-path tests stay fast.
     monkeypatch.setenv("AIDAILY_X_RETRY_BACKOFF_S", "0")
+    # Wecom notifier: same — respx failure-path tests must not sleep 2s/4s/8s.
+    monkeypatch.setenv("AIDAILY_WECOM_RETRY_BACKOFF_S", "0")
     # Reddit collector: kill the opencli bridge for every test — dev machines
     # have opencli installed, and an accidental live probe would spawn real
     # browser-bridge subprocesses (slow, flaky, network-dependent). Tests
