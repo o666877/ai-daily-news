@@ -137,7 +137,7 @@ function handleApplySettings() {
   var body = buildSettingsBody(); // 先收集 DOM(含 imPush 行)再校验
   var invalid = validateImPushLocal();
   if (invalid) { toast(invalid); return; }
-  saveSettingsBody(body).then(function (r) {
+  saveSettings(body).then(function (r) {
     applyImPushToUI(r.body && r.body.imPush); // 新增 webhook 的完整 URL 回读为脱敏形式
     refreshImPushStatus();
     document.getElementById("settingsDialog").close();

@@ -68,7 +68,8 @@ function collectImPushFromUI() {
   var lb = document.getElementById("imLinkBase");
   if (en) state.imPush.enabled = en.checked;
   if (tn) state.imPush.topN = parseInt(tn.value, 10) || 5;
-  if (lb) state.imPush.linkBaseUrl = (lb.value || "").trim();
+  // 留空 = 自动使用当前访问地址(内网穿透域名访问时即该域名),手机无法访问时才需显式填写
+  if (lb) state.imPush.linkBaseUrl = (lb.value || "").trim() || window.location.origin;
   syncRowsIntoState();
   return state.imPush;
 }
