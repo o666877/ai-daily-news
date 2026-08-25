@@ -307,6 +307,7 @@
   .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 0; }
   .switch-row .switch-label { font-size: 14.5px; }
   .switch-row .switch-label small { display: block; font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+  .switch-row-stack { flex-direction: column; align-items: stretch; gap: 6px; }
   .switch {
     position: relative; width: 46px; height: 26px; flex: none; cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -339,7 +340,7 @@
   .im-hook-row .im-hook-url, .im-link-base { flex: 1; min-width: 0; }
   .im-hook-row .im-hook-test { flex: none; }
   .im-hook-row .im-hook-del { flex: none; padding: 6px 10px; }
-  .im-link-base { margin-top: 6px; }
+  .im-link-base { margin-top: 0; }
 
   /* ── 状态：加载 ───────────────────────── */
   .skeleton-list { display: flex; flex-direction: column; }
@@ -573,7 +574,7 @@
           <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
         </select>
       </div>
-      <div class="switch-row">
+      <div class="switch-row switch-row-stack">
         <div class="switch-label">日报链接基地址<small>手机可访问的地址(公网域名或内网穿透);留空则自动使用当前访问地址</small></div>
         <input type="text" id="imLinkBase" class="im-hook-url im-link-base" placeholder="留空自动使用当前访问地址" aria-label="日报链接基地址">
       </div>
