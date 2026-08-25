@@ -8,10 +8,12 @@ import {
 } from "./render.js";
 import {
   refetchByFilters, applyToggles, selectFirstIfNone,
-  loadArticleIntoReader, handleOpenSettings, handleApplySettings,
-  handleResetSettings, handleShare
+  loadArticleIntoReader, handleShare
 } from "./actions.js";
-import { handleRepush, handleAddWebhook, handleDeleteWebhook, handleTestWebhook } from "./im-push.js";
+import {
+  handleOpenSettings, handleApplySettings, handleResetSettings,
+  handleRepush, handleAddWebhook, handleDeleteWebhook, handleTestWebhook
+} from "./settings-panel.js";
 
 /* ═══ 事件绑定 ═══ */
 document.querySelectorAll("#typeFilters .chip").forEach(function (c) {
